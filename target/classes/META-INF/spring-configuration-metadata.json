@@ -8,12 +8,6 @@
   ],
   "properties": [
     {
-      "name": "azure.graph.base-url",
-      "type": "java.lang.String",
-      "description": "Basis-URL der Microsoft Graph API",
-      "sourceType": "com.booking.azure.config.GraphApiProperties"
-    },
-    {
       "name": "azure.graph.client-id",
       "type": "java.lang.String",
       "description": "Client-ID der registrierten Azure-AD-Anwendung",

@@ -21,10 +21,8 @@ azure:
     client-id: ${AZURE_CLIENT_ID:your-client-id}
     # Client-Secret der in Azure AD registrierten Anwendung
     client-secret: ${AZURE_CLIENT_SECRET:your-client-secret}
-    # OAuth-2.0-Berechtigungsbereich für Microsoft Graph
+    # OAuth-2.0-Berechtigungsbereich für Microsoft Graph (wird vom SDK verwendet)
     scope: https://graph.microsoft.com/.default
-    # Basis-URL der Microsoft Graph API
-    base-url: https://graph.microsoft.com/v1.0
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Microsoft Bookings – Buchungs-URL-Konfiguration
@@ -36,6 +34,14 @@ buchung:
   # Beispiel: https://outlook.office.com/book/agenturfreiburg@midominio.com
   # Der Agenturname ist IMMER dynamisch und wird aus der Agentur-ID abgeleitet.
   buchungs-basis-url: https://outlook.office.com/book/
+
+  # Mitarbeiter-IDs (GUIDs), die automatisch jedem neuen Termin zugewiesen werden.
+  # Leer lassen = Graph API weist keinen bestimmten Mitarbeiter zu.
+  # Beispiel:
+  #   default-staff-ids:
+  #     - 8ee1c803-a1fa-406d-8259-7ab53233f148
+  #     - 3fa85f64-5717-4562-b3fc-2c963f66afa6
+  default-staff-ids:
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Protokollierung (Logging)

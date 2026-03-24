@@ -85,14 +85,20 @@ public class AppointmentController {
      * Neuen Termin erstellen.
      *
      * Pflichtfelder im Request-Body:
-     *   - serviceId:      ID (GUID) des gebuchten Dienstes
-     *   - startDateTime:  Startzeit mit Zeitzone (z. B. Europe/Berlin)
-     *   - endDateTime:    Endzeit mit Zeitzone
+     *   - serviceId:            ID (GUID) des gebuchten Dienstes
+     *   - start:                Startzeit mit Zeitzone (dateTime + timeZone)
+     *   - end:                  Endzeit mit Zeitzone
+     *   - location:             Dienstadresse (strasse, ort, plz, land)
+     *   - kunde.vorname:        Vorname des Kunden
+     *   - kunde.nachname:       Nachname des Kunden
+     *   - kunde.email:          E-Mail-Adresse des Kunden
      *
      * Optionale Felder:
-     *   - staffMemberIds: Zugewiesene Mitarbeiter-IDs
-     *   - customers:      Kundendaten (Name, E-Mail, Telefon)
-     *   - isLocationOnline: true = Teams-Besprechungslink erzeugen
+     *   - notificationsEnabled: Kundenbenachrichtigung per E-Mail/SMS (Standard: true)
+     *   - kunde.telefon:        Telefonnummer des Kunden
+     *   - kunde.anmerkungen:    Hinweise / Sonderwünsche des Kunden
+     *
+     * StaffMemberIds werden automatisch aus der Konfiguration befüllt.
      *
      * @param businessId ID der Agentur
      * @param anfrage    Validierter Request-Body mit Termindaten

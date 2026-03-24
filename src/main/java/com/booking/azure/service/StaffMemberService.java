@@ -109,10 +109,32 @@ public class StaffMemberService implements MitarbeiterVerwaltung {
     }
 
     /**
-     * Verfügbarkeit (frei / belegt) eines oder mehrerer Mitarbeiter
-     * in einem Zeitraum abfragen.
+     * Mitarbeiter eines Buchungsbetriebs nach Name oder E-Mail suchen.
+     * Ruft die vollständige Liste ab und filtert clientseitig,
+     * da die Graph-API kein $filter für staffMembers unterstützt.
      *
-     * Verfügbarkeitsstatus pro Zeitfenster:
+     * @param betriebId   ID der Agentur
+     * @param suchbegriff Teilstring des Vor-/Nachnamens oder der E-Mail-Adresse
+     * @return Passende Mitarbeiter (leer bei keinem Treffer)
+     */
+    @Override
+    public List<BookingStaffMemberDto> mitarbeiterSuchen(String betriebId, String suchbegriff) {
+        log.info("Mitarbeitersuche in Betrieb {} mit Suchbegriff: '{}'", betriebId, suchbegriff);
+        List<BookingStaffMemberDto> alle = mitarbeiterAuflisten(betriebId);
+        String suchbegriffKlein = suchbegriff.trim().toLowerCase();
+        return alle.stream()
+                .filter(m -> {
+                    String name = m.getDisplayName() != null
+                            ? m.getDisplayName().toLowerCase() : "";
+                    String email = m.getEmailAddress() != null
+                            ? m.getEmailAddress().toLowerCase() : "";
+                    return name.contains(suchbegriffKlein) || email.contains(suchbegriffKlein);
+                })
+                .toList();
+    }
+
+    /**
+     * Verfügbarkeit (frei / belegt) eines oder mehrerer Mitarbeiter
      * - {@code Available}      → Mitarbeiter ist frei
      * - {@code Busy}           → Mitarbeiter hat einen Termin (siehe serviceId)
      * - {@code SlotsAvailable} → Freie Zeitfenster vorhanden

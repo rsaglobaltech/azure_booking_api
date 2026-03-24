@@ -5,7 +5,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
 
 /**
- * Kundeninformationen für einen Termin.
+ * Kundeninformationen für einen Termin (Graph-API: bookingCustomerInformation).
  */
 @Data
 @JsonIgnoreProperties(ignoreUnknown = true)
@@ -25,4 +25,8 @@ public class BookingCustomerInfoDto {
 
     @JsonProperty("notes")
     private String notes;
+
+    /** Standort des Kunden (Adresse zum Zeitpunkt des Termins) */
+    @JsonProperty("location")
+    private LocationDto location;
 }

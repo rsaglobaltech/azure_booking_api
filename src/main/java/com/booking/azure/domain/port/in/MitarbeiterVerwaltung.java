@@ -71,6 +71,21 @@ public interface MitarbeiterVerwaltung {
     void mitarbeiterLoeschen(String betriebId, String mitarbeiterId);
 
     /**
+     * Mitarbeiter eines Buchungsbetriebs nach Name oder E-Mail suchen.
+     *
+     * Die Graph-API unterstützt kein serverseitiges $filter für staffMembers,
+     * daher wird die komplette Liste abgerufen und clientseitig gefiltert.
+     *
+     * Suchkriterien (OR-verknüpft, Groß-/Kleinschreibung wird ignoriert):
+     *   - {@code suchbegriff} wird in {@code displayName} und {@code emailAddress} gesucht
+     *
+     * @param betriebId   ID des Buchungsbetriebs
+     * @param suchbegriff Vorname, Nachname oder E-Mail-Adresse (Teilstring möglich)
+     * @return Liste der passenden Mitarbeiter (leer, wenn kein Treffer)
+     */
+    List<BookingStaffMemberDto> mitarbeiterSuchen(String betriebId, String suchbegriff);
+
+    /**
      * Verfügbarkeit (frei / belegt) eines oder mehrerer Mitarbeiter
      * in einem Zeitraum abfragen.
      *

@@ -78,8 +78,7 @@ com.booking.azure/
 │   ├── BookingBusinessService     → implements AgenturVerwaltung
 │   ├── BookingServiceMgr          → implements DienstVerwaltung
 │   ├── StaffMemberService         → implements MitarbeiterVerwaltung
-│   ├── GraphApiClient             → implements GraphApiAnfrage (Infrastruktur)
-│   └── GraphAuthService           (Azure-AD-OAuth2-Token-Verwaltung)
+│   └── GraphApiClient             → implements GraphApiAnfrage (Infrastruktur)
 │
 ├── controller/                    ← PRÄSENTATIONSSCHICHT
 │   ├── AppointmentController      → inject TerminVerwaltung
@@ -90,7 +89,7 @@ com.booking.azure/
 ├── config/                        ← INFRASTRUKTURSCHICHT (Konfiguration)
 │   ├── CorsConfig
 │   ├── GraphApiProperties
-│   └── WebClientConfig
+│   └── GraphClientConfig          (GraphServiceClient-Bean via azure-identity)
 │
 ├── dto/                           ← PRÄSENTATIONSSCHICHT (Datentransfer)
 │   ├── request/
@@ -134,8 +133,7 @@ graph TD
 
     subgraph Infrastruktur
         GC[GraphApiClient]
-        GS[GraphAuthService]
-        WC[WebClientConfig]
+        CC[GraphClientConfig]
         GP[GraphApiProperties]
     end
 
@@ -160,9 +158,9 @@ graph TD
     SS -->|nutzt| GA
 
     GC -->|implementiert| GA
-    GC -->|HTTP requests| MSG
-    GS -->|holt Token| AAD
-    GC -->|nutzt Token von| GS
+    GC -->|HTTPS + auto-auth| MSG
+    CC -->|erstellt GraphServiceClient| GC
+    CC -->|ClientSecretCredential| AAD
 ```
 
 ---
@@ -179,8 +177,8 @@ C4Component
         Component(ports_in, "Eingehende Ports", "Java Interfaces", "Domänenschicht: Use-Case-Verträge")
         Component(ports_out, "Ausgehender Port", "Java Interface", "Domänenschicht: GraphApiAnfrage")
         Component(services, "Anwendungsdienste", "Spring @Service", "Anwendungsschicht: Use-Case-Implementierungen")
-        Component(client, "GraphApiClient", "WebClient + MSAL4J", "Infrastruktur: HTTP-Adapter für Graph API")
-        Component(auth, "GraphAuthService", "MSAL4J", "Infrastruktur: OAuth2 Client Credentials")
+        Component(client, "GraphApiClient", "Graph SDK v6 (Kiota/OkHttp)", "Infrastruktur: HTTP-Adapter für Graph API")
+        Component(cfg, "GraphClientConfig", "azure-identity", "Infrastruktur: erstellt GraphServiceClient mit ClientSecretCredential")
     }
 
     System_Ext(graph, "Microsoft Graph API v1.0", "REST-API für Bookings")
@@ -190,9 +188,8 @@ C4Component
     Rel(services, ports_in, "implementiert")
     Rel(services, ports_out, "ruft auf")
     Rel(client, ports_out, "implementiert")
-    Rel(client, graph, "HTTPS REST", "Bearer Token")
-    Rel(auth, aad, "HTTPS", "Client Credentials Flow")
-    Rel(client, auth, "holt Token")
+    Rel(cfg, aad, "HTTPS", "Client Credentials Flow (automatisch)")
+    Rel(client, graph, "HTTPS REST", "Bearer Token (SDK-intern verwaltet)")
 ```
 
 ---
@@ -207,7 +204,7 @@ sequenceDiagram
     participant S as AppointmentService
     participant Q as GraphApiAnfrage (Port)
     participant G as GraphApiClient
-    participant A as GraphAuthService
+    participant SDK as GraphServiceClient (SDK)
     participant MS as Microsoft Graph API
 
     K->>C: POST /api/businesses/{betriebId}/appointments
@@ -215,10 +212,12 @@ sequenceDiagram
     P->>S: terminErstellen(betriebId, anfrage)
     S->>Q: post("/solutions/bookingBusinesses/.../appointments", anfrage)
     Q->>G: post(pfad, koerper, antwortTyp)
-    G->>A: getAccessToken()
-    A-->>G: Bearer-Token (gecacht / neu)
-    G->>MS: POST /v1.0/solutions/bookingBusinesses/.../appointments
-    MS-->>G: BookingAppointment (JSON)
+    G->>SDK: sendPrimitive(RequestInformation)
+    Note over SDK: Token wird automatisch von<br/>ClientSecretCredential (azure-identity)<br/>geholt und gecacht
+    SDK->>MS: POST /v1.0/solutions/bookingBusinesses/.../appointments
+    MS-->>SDK: BookingAppointment (JSON)
+    SDK-->>G: InputStream
+    Note over G: Jackson deserialisiert zu BookingAppointmentDto
     G-->>S: BookingAppointmentDto
     S-->>C: BookingAppointmentDto
     C-->>K: HTTP 201 Created + BookingAppointmentDto
@@ -299,17 +298,18 @@ https://outlook.office.com/book/{agenturName}@midominio.com
 
 ```mermaid
 graph LR
-    A[Azure Buchungs-API] -->|Client Credentials Flow| B[Azure AD]
-    B -->|Bearer Token| A
-    A -->|Authorization: Bearer {token}| C[Microsoft Graph API]
-    C -->|Bookings-Daten| A
+    CC[GraphClientConfig<br/>azure-identity] -->|ClientSecretCredential| SDK[GraphServiceClient<br/>SDK-intern]
+    SDK -->|Client Credentials Flow| AAD[Azure AD]
+    AAD -->|Bearer Token gecacht| SDK
+    SDK -->|Authorization: Bearer| MSG[Microsoft Graph API]
+    MSG -->|Bookings-Daten| SDK
 ```
 
-**Ablauf:**
-1. Die Anwendung sendet `clientId` + `clientSecret` an Azure AD
-2. Azure AD gibt einen zeitlich begrenzten Bearer-Token zurück
-3. Der Token wird gecacht und automatisch erneuert (5 Minuten vor Ablauf)
-4. Jede Graph-API-Anfrage enthält den Token im `Authorization`-Header
+**Ablauf (automatisch durch das SDK verwaltet):**
+1. `GraphClientConfig` erstellt beim Start einen `GraphServiceClient` mit `ClientSecretCredential` (azure-identity)
+2. Bei jeder Anfrage prüft die `ClientSecretCredential` den Token-Cache
+3. Falls kein gültiger Token vorhanden ist, holt sie automatisch einen neuen von Azure AD (Client Credentials Flow)
+4. Das SDK injiziert den Bearer-Token in jede HTTP-Anfrage – ohne manuelles Token-Handling im Anwendungscode
 
 **Benötigte Azure-AD-Berechtigungen:**
 
@@ -326,8 +326,8 @@ graph LR
 |-----------|-------------|
 | Laufzeitumgebung | Java 17 |
 | Framework | Spring Boot 3.2.x |
-| HTTP-Client | Spring WebFlux (WebClient) + Reactor Netty |
-| Authentifizierung | MSAL4J (Microsoft Authentication Library) |
+| Graph-Client | Microsoft Graph Java SDK v6.62.0 (Kiota + OkHttp) |
+| Authentifizierung | azure-identity v1.11.0 (`ClientSecretCredential`) |
 | JSON | Jackson Databind |
 | Code-Boilerplate | Lombok |
 | Build | Maven 3.x |

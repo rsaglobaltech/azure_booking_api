@@ -78,6 +78,30 @@ public class StaffMemberController {
     }
 
     /**
+     * Mitarbeiter nach Name oder E-Mail-Adresse suchen.
+     *
+     * Gibt alle Mitarbeiter zurück, deren {@code displayName} oder
+     * {@code emailAddress} den Suchbegriff enthält (Groß-/Kleinschreibung egal).
+     * Das Ergebnis kann leer sein, wenn kein Mitarbeiter übereinstimmt.
+     *
+     * Verwendung im Termin-Buchungsablauf:
+     *   1. Diesen Endpunkt aufrufen, um die {@code id} des Mitarbeiters zu ermitteln
+     *   2. Die {@code id} als {@code mitarbeiterId} im POST /appointments übergeben
+     *
+     * Beispiel: GET /api/businesses/agentur@domain.com/staff/search?q=Dana
+     *
+     * @param businessId  ID der Agentur
+     * @param q           Suchbegriff (Vor-/Nachname oder E-Mail, Teilstring)
+     * @return Liste der passenden Mitarbeiter
+     */
+    @GetMapping("/search")
+    public ResponseEntity<List<BookingStaffMemberDto>> mitarbeiterSuchen(
+            @PathVariable String businessId,
+            @RequestParam String q) {
+        return ResponseEntity.ok(mitarbeiterVerwaltung.mitarbeiterSuchen(businessId, q));
+    }
+
+    /**
      * Bestehenden Mitarbeiter aktualisieren.
      *
      * @param businessId ID der Agentur

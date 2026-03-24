@@ -31,7 +31,4 @@ public class GraphApiProperties {
 
     /** OAuth-2.0-Berechtigungsbereich für Microsoft Graph */
     private String scope;
-
-    /** Basis-URL der Microsoft Graph API */
-    private String baseUrl;
 }
