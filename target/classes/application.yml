@@ -1,0 +1,55 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: azure-buchungs-api
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+    deserialization:
+      fail-on-unknown-properties: false
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Microsoft Azure AD / Graph API – Konfiguration
+# ─────────────────────────────────────────────────────────────────────────────
+azure:
+  graph:
+    # Azure-AD-Mandanten-ID
+    tenant-id: ${AZURE_TENANT_ID:your-tenant-id}
+    # Client-ID der in Azure AD registrierten Anwendung
+    client-id: ${AZURE_CLIENT_ID:your-client-id}
+    # Client-Secret der in Azure AD registrierten Anwendung
+    client-secret: ${AZURE_CLIENT_SECRET:your-client-secret}
+    # OAuth-2.0-Berechtigungsbereich für Microsoft Graph
+    scope: https://graph.microsoft.com/.default
+    # Basis-URL der Microsoft Graph API
+    base-url: https://graph.microsoft.com/v1.0
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Microsoft Bookings – Buchungs-URL-Konfiguration
+# ─────────────────────────────────────────────────────────────────────────────
+buchung:
+  # Basis-URL der Microsoft Bookings Selbstbuchungsseite.
+  # Die vollständige URL wird dynamisch berechnet:
+  #   {buchungs-basis-url}{agenturName}@midominio.com
+  # Beispiel: https://outlook.office.com/book/agenturfreiburg@midominio.com
+  # Der Agenturname ist IMMER dynamisch und wird aus der Agentur-ID abgeleitet.
+  buchungs-basis-url: https://outlook.office.com/book/
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Protokollierung (Logging)
+# ─────────────────────────────────────────────────────────────────────────────
+logging:
+  level:
+    com.booking: DEBUG
+    org.springframework.web: INFO
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Actuator – Verwaltungsendpunkte
+# ─────────────────────────────────────────────────────────────────────────────
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

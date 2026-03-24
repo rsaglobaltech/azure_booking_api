@@ -1,0 +1,1208 @@
+openapi: 3.0.3
+info:
+  title: Azure Buchungs-API
+  description: |
+    REST-API, die als Proxy zur **Microsoft Bookings API (Microsoft Graph v1.0)** fungiert.
+
+    Ermöglicht die Verwaltung von Buchungsagenturen, Mitarbeitern, Diensten und Terminen
+    innerhalb eines einzigen Azure-AD-Mandanten. Die gesamte Authentifizierung erfolgt über
+    **OAuth2 Client Credentials** (ohne Benutzer).
+
+    ### Erforderliche Berechtigungen in Azure AD
+    - `Bookings.ReadWrite.All` (Application)
+    - `BookingsAppointment.ReadWrite.All` (Application)
+  version: 1.0.0
+  contact:
+    name: Azure Buchungs-API
+
+servers:
+  - url: http://localhost:8080
+    description: Lokaler Entwicklungsserver
+
+tags:
+  - name: Businesses
+    description: Verwaltung von Buchungsagenturen in Microsoft Bookings
+  - name: Staff Members
+    description: Verwaltung von Mitarbeitern einer Agentur und Verfügbarkeitsabfragen
+  - name: Appointments
+    description: Verwaltung von Terminen (Buchungen)
+  - name: Services
+    description: Verwaltung von Diensten einer Agentur
+
+paths:
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # BUSINESSES
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  /api/businesses:
+    get:
+      tags: [Businesses]
+      summary: Alle Agenturen des Mandanten auflisten
+      description: Gibt alle BookingBusinesses zurück, die im Azure-AD-Mandanten registriert sind.
+      operationId: listBusinesses
+      responses:
+        '200':
+          description: Liste der Agenturen
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BookingBusiness'
+        '502':
+          $ref: '#/components/responses/GraphError'
+
+    post:
+      tags: [Businesses]
+      summary: Neue Agentur erstellen
+      operationId: createBusiness
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateBookingBusinessRequest'
+            example:
+              displayName: "Agentur Berlin Mitte"
+              businessType: "consultancy"
+              email: "berlin@meinedomain.de"
+              phone: "+4930000000"
+              languageTag: "de-DE"
+              defaultCurrencyIso: "EUR"
+      responses:
+        '201':
+          description: Agentur erstellt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingBusiness'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '502':
+          $ref: '#/components/responses/GraphError'
+
+  /api/businesses/{businessId}:
+    parameters:
+      - $ref: '#/components/parameters/businessId'
+
+    get:
+      tags: [Businesses]
+      summary: Eine bestimmte Agentur abrufen
+      operationId: getBusiness
+      responses:
+        '200':
+          description: Daten der Agentur
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingBusiness'
+        '502':
+          $ref: '#/components/responses/GraphError'
+
+    put:
+      tags: [Businesses]
+      summary: Agentur aktualisieren
+      operationId: updateBusiness
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateBookingBusinessRequest'
+      responses:
+        '200':
+          description: Agentur aktualisiert
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingBusiness'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '502':
+          $ref: '#/components/responses/GraphError'
+
+    delete:
+      tags: [Businesses]
+      summary: Agentur löschen
+      operationId: deleteBusiness
+      responses:
+        '204':
+          description: Agentur gelöscht
+        '502':
+          $ref: '#/components/responses/GraphError'
+
+  /api/businesses/{businessId}/publish:
+    parameters:
+      - $ref: '#/components/parameters/businessId'
+    post:
+      tags: [Businesses]
+      summary: Buchungsseite der Agentur veröffentlichen
+      description: Macht die Buchungsseite für externe Kunden zugänglich. Setzt `isPublished=true`.
+      operationId: publishBusiness
+      responses:
+        '200':
+          description: Seite veröffentlicht
+        '502':
+          $ref: '#/components/responses/GraphError'
+
+  /api/businesses/{businessId}/unpublish:
+    parameters:
+      - $ref: '#/components/parameters/businessId'
+    post:
+      tags: [Businesses]
+      summary: Buchungsseite der Agentur deaktivieren
+      operationId: unpublishBusiness
+      responses:
+        '200':
+          description: Seite deaktiviert
+        '502':
+          $ref: '#/components/responses/GraphError'
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # STAFF MEMBERS
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  /api/businesses/{businessId}/staff:
+    parameters:
+      - $ref: '#/components/parameters/businessId'
+
+    get:
+      tags: [Staff Members]
+      summary: Mitarbeiter einer Agentur auflisten
+      operationId: listStaffMembers
+      responses:
+        '200':
+          description: Liste der Mitarbeiter
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BookingStaffMember'
+        '502':
+          $ref: '#/components/responses/GraphError'
+
+    post:
+      tags: [Staff Members]
+      summary: Mitarbeiter erstellen
+      operationId: createStaffMember
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateStaffMemberRequest'
+            example:
+              displayName: "Maria Müller"
+              emailAddress: "maria@meinedomain.de"
+              role: "teamMember"
+              timeZone: "Europe/Berlin"
+              useBusinessHours: true
+              availabilityIsAffectedByPersonalCalendar: true
+              isEmailNotificationEnabled: true
+      responses:
+        '201':
+          description: Mitarbeiter erstellt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingStaffMember'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '502':
+          $ref: '#/components/responses/GraphError'
+
+  /api/businesses/{businessId}/staff/{staffId}:
+    parameters:
+      - $ref: '#/components/parameters/businessId'
+      - $ref: '#/components/parameters/staffId'
+
+    get:
+      tags: [Staff Members]
+      summary: Mitarbeiter abrufen
+      operationId: getStaffMember
+      responses:
+        '200':
+          description: Daten des Mitarbeiters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingStaffMember'
+        '502':
+          $ref: '#/components/responses/GraphError'
+
+    put:
+      tags: [Staff Members]
+      summary: Mitarbeiter aktualisieren
+      operationId: updateStaffMember
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateStaffMemberRequest'
+      responses:
+        '200':
+          description: Mitarbeiter aktualisiert
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingStaffMember'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '502':
+          $ref: '#/components/responses/GraphError'
+
+    delete:
+      tags: [Staff Members]
+      summary: Mitarbeiter löschen
+      operationId: deleteStaffMember
+      responses:
+        '204':
+          description: Mitarbeiter gelöscht
+        '502':
+          $ref: '#/components/responses/GraphError'
+
+  /api/businesses/{businessId}/staff/availability:
+    parameters:
+      - $ref: '#/components/parameters/businessId'
+    post:
+      tags: [Staff Members]
+      summary: Verfügbarkeit von Mitarbeitern abfragen (frei/besetzt)
+      description: |
+        Gibt die Verfügbarkeit eines oder mehrerer Mitarbeiter in einem Zeitraum zurück.
+
+        Das Feld `status` pro Zeitfenster kann folgende Werte haben:
+
+        | Wert | Bedeutung |
+        |------|-----------|
+        | `Available` | Der Mitarbeiter ist **frei** |
+        | `Busy` | Der Mitarbeiter ist **besetzt** (hat einen Termin; siehe `serviceId`) |
+        | `SlotsAvailable` | Es sind Zeitfenster verfügbar |
+        | `OutOfOffice` | Außer Haus |
+
+        Das Feld `serviceId` in jedem availabilityItem gibt an, welchen Dienst
+        der Mitarbeiter bei Status `Busy` gerade betreut.
+      operationId: getStaffAvailability
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StaffAvailabilityRequest'
+            example:
+              staffIds:
+                - "311a5454-08b2-4560-ba1c-f715e938cb79"
+                - "4a2b1c3d-1234-5678-abcd-ef0123456789"
+              startDateTime:
+                dateTime: "2024-06-15T08:00:00"
+                timeZone: "Europe/Berlin"
+              endDateTime:
+                dateTime: "2024-06-15T18:00:00"
+                timeZone: "Europe/Berlin"
+      responses:
+        '200':
+          description: Verfügbarkeit der angeforderten Mitarbeiter
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/StaffAvailabilityItem'
+              example:
+                - staffId: "311a5454-08b2-4560-ba1c-f715e938cb79"
+                  availabilityItems:
+                    - status: "Available"
+                      startDateTime:
+                        dateTime: "2024-06-15T08:00:00"
+                        timeZone: "Europe/Berlin"
+                      endDateTime:
+                        dateTime: "2024-06-15T10:00:00"
+                        timeZone: "Europe/Berlin"
+                      serviceId: ""
+                    - status: "Busy"
+                      startDateTime:
+                        dateTime: "2024-06-15T10:00:00"
+                        timeZone: "Europe/Berlin"
+                      endDateTime:
+                        dateTime: "2024-06-15T11:00:00"
+                        timeZone: "Europe/Berlin"
+                      serviceId: "57da6774-a087-4d69-b0e6-6fb82c339976"
+                    - status: "Available"
+                      startDateTime:
+                        dateTime: "2024-06-15T11:00:00"
+                        timeZone: "Europe/Berlin"
+                      endDateTime:
+                        dateTime: "2024-06-15T18:00:00"
+                        timeZone: "Europe/Berlin"
+                      serviceId: ""
+        '502':
+          $ref: '#/components/responses/GraphError'
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # APPOINTMENTS
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  /api/businesses/{businessId}/appointments:
+    parameters:
+      - $ref: '#/components/parameters/businessId'
+
+    get:
+      tags: [Appointments]
+      summary: Alle Termine einer Agentur auflisten
+      operationId: listAppointments
+      responses:
+        '200':
+          description: Liste der Termine
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BookingAppointment'
+        '502':
+          $ref: '#/components/responses/GraphError'
+
+    post:
+      tags: [Appointments]
+      summary: Termin erstellen
+      description: |
+        Erstellt einen neuen Termin mit einem Dienst, Mitarbeiter(n) und Kunden.
+        Vor dem Erstellen des Termins sollte `/staff/availability` aufgerufen werden,
+        um die Verfügbarkeit des Mitarbeiters im gewählten Zeitraum zu prüfen.
+      operationId: createAppointment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAppointmentRequest'
+            example:
+              serviceId: "57da6774-a087-4d69-b0e6-6fb82c339976"
+              startDateTime:
+                dateTime: "2024-06-15T10:00:00"
+                timeZone: "Europe/Berlin"
+              endDateTime:
+                dateTime: "2024-06-15T11:00:00"
+                timeZone: "Europe/Berlin"
+              staffMemberIds:
+                - "311a5454-08b2-4560-ba1c-f715e938cb79"
+              customers:
+                - name: "Max Mustermann"
+                  emailAddress: "max@example.de"
+                  phone: "+4915100000000"
+              isLocationOnline: false
+              serviceNotes: "Erster Kundenbesuch"
+      responses:
+        '201':
+          description: Termin erstellt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingAppointment'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '502':
+          $ref: '#/components/responses/GraphError'
+
+  /api/businesses/{businessId}/appointments/calendar:
+    parameters:
+      - $ref: '#/components/parameters/businessId'
+    get:
+      tags: [Appointments]
+      summary: Kalenderansicht — Termine in einem Datumsbereich
+      description: |
+        Gibt alle Termine zwischen `startDateTime` und `endDateTime` zurück.
+        ISO-8601-Format mit Zeitzone verwenden, z. B.: `2024-06-01T00:00:00Z`.
+      operationId: getCalendarView
+      parameters:
+        - name: startDateTime
+          in: query
+          required: true
+          schema:
+            type: string
+            example: "2024-06-01T00:00:00Z"
+          description: Beginn des Zeitraums im ISO-8601-Format
+        - name: endDateTime
+          in: query
+          required: true
+          schema:
+            type: string
+            example: "2024-06-30T23:59:59Z"
+          description: Ende des Zeitraums im ISO-8601-Format
+      responses:
+        '200':
+          description: Termine im angegebenen Zeitraum
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BookingAppointment'
+        '502':
+          $ref: '#/components/responses/GraphError'
+
+  /api/businesses/{businessId}/appointments/{appointmentId}:
+    parameters:
+      - $ref: '#/components/parameters/businessId'
+      - $ref: '#/components/parameters/appointmentId'
+
+    get:
+      tags: [Appointments]
+      summary: Einen bestimmten Termin abrufen
+      operationId: getAppointment
+      responses:
+        '200':
+          description: Daten des Termins
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingAppointment'
+        '502':
+          $ref: '#/components/responses/GraphError'
+
+    put:
+      tags: [Appointments]
+      summary: Termin aktualisieren
+      operationId: updateAppointment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAppointmentRequest'
+      responses:
+        '200':
+          description: Termin aktualisiert
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingAppointment'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '502':
+          $ref: '#/components/responses/GraphError'
+
+    delete:
+      tags: [Appointments]
+      summary: Termin stornieren/löschen
+      operationId: cancelAppointment
+      responses:
+        '204':
+          description: Termin storniert
+        '502':
+          $ref: '#/components/responses/GraphError'
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # SERVICES
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  /api/businesses/{businessId}/services:
+    parameters:
+      - $ref: '#/components/parameters/businessId'
+
+    get:
+      tags: [Services]
+      summary: Dienste einer Agentur auflisten
+      operationId: listServices
+      responses:
+        '200':
+          description: Liste der Dienste
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BookingService'
+        '502':
+          $ref: '#/components/responses/GraphError'
+
+    post:
+      tags: [Services]
+      summary: Dienst erstellen
+      operationId: createService
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateServiceRequest'
+            example:
+              displayName: "Steuerberatung 60 Min."
+              description: "Persönliche Steuerberatung"
+              defaultDuration: "PT1H"
+              defaultPrice: 80.00
+              defaultPriceType: "fixedPrice"
+              isHiddenFromCustomers: false
+              isLocationOnline: false
+              staffMemberIds:
+                - "311a5454-08b2-4560-ba1c-f715e938cb79"
+      responses:
+        '201':
+          description: Dienst erstellt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingService'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '502':
+          $ref: '#/components/responses/GraphError'
+
+  /api/businesses/{businessId}/services/{serviceId}:
+    parameters:
+      - $ref: '#/components/parameters/businessId'
+      - $ref: '#/components/parameters/serviceId'
+
+    get:
+      tags: [Services]
+      summary: Dienst abrufen
+      operationId: getService
+      responses:
+        '200':
+          description: Daten des Dienstes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingService'
+        '502':
+          $ref: '#/components/responses/GraphError'
+
+    put:
+      tags: [Services]
+      summary: Dienst aktualisieren
+      operationId: updateService
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateServiceRequest'
+      responses:
+        '200':
+          description: Dienst aktualisiert
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingService'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '502':
+          $ref: '#/components/responses/GraphError'
+
+    delete:
+      tags: [Services]
+      summary: Dienst löschen
+      operationId: deleteService
+      responses:
+        '204':
+          description: Dienst gelöscht
+        '502':
+          $ref: '#/components/responses/GraphError'
+
+# ─────────────────────────────────────────────────────────────────────────────
+# COMPONENTS
+# ─────────────────────────────────────────────────────────────────────────────
+
+components:
+
+  parameters:
+    businessId:
+      name: businessId
+      in: path
+      required: true
+      description: ID der Buchungsagentur (z. B. `agentur@meinedomain.de` oder GUID)
+      schema:
+        type: string
+      example: "agenturberlin@meinedomain.de"
+
+    staffId:
+      name: staffId
+      in: path
+      required: true
+      description: ID (GUID) des Mitarbeiters
+      schema:
+        type: string
+        format: uuid
+      example: "311a5454-08b2-4560-ba1c-f715e938cb79"
+
+    appointmentId:
+      name: appointmentId
+      in: path
+      required: true
+      description: ID (GUID) des Termins
+      schema:
+        type: string
+        format: uuid
+
+    serviceId:
+      name: serviceId
+      in: path
+      required: true
+      description: ID (GUID) des Dienstes
+      schema:
+        type: string
+        format: uuid
+
+  responses:
+    GraphError:
+      description: Fehler von der Microsoft Graph API
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: 502
+            message: "Graph API error: 404 - Entity not found"
+
+    ValidationError:
+      description: Validierungsfehler im Anfrage-Body
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: 400
+            message: "Validierung fehlgeschlagen: displayName: Pflichtfeld"
+
+  schemas:
+
+    # ── Shared ────────────────────────────────────────────────────────────────
+
+    DateTimeTimeZone:
+      type: object
+      description: Datum und Uhrzeit mit expliziter Zeitzone (Microsoft Graph Format)
+      properties:
+        dateTime:
+          type: string
+          description: Datum und Uhrzeit im ISO-8601-Format ohne Z-Suffix (Zeitzone separat)
+          example: "2024-06-15T10:00:00"
+        timeZone:
+          type: string
+          description: Name der IANA- oder Windows-Zeitzone
+          example: "Europe/Berlin"
+      required: [dateTime, timeZone]
+
+    PhysicalAddress:
+      type: object
+      properties:
+        street:
+          type: string
+          example: "Unter den Linden 1"
+        city:
+          type: string
+          example: "Berlin"
+        state:
+          type: string
+          example: "Berlin"
+        postalCode:
+          type: string
+          example: "10117"
+        countryOrRegion:
+          type: string
+          example: "Deutschland"
+
+    Location:
+      type: object
+      properties:
+        displayName:
+          type: string
+          example: "Büro Berlin Mitte"
+        address:
+          $ref: '#/components/schemas/PhysicalAddress'
+
+    BookingWorkHours:
+      type: object
+      description: Arbeitszeiten für einen Wochentag
+      properties:
+        day:
+          type: string
+          enum: [sunday, monday, tuesday, wednesday, thursday, friday, saturday]
+          example: "monday"
+        timeSlots:
+          type: array
+          items:
+            type: object
+            properties:
+              startTime:
+                type: string
+                example: "09:00:00.0000000"
+              endTime:
+                type: string
+                example: "18:00:00.0000000"
+
+    BookingSchedulingPolicy:
+      type: object
+      properties:
+        timeSlotInterval:
+          type: string
+          description: Dauer jedes Zeitfensters im ISO-8601-Dauerformat
+          example: "PT30M"
+        minimumLeadTime:
+          type: string
+          example: "P1D"
+        maximumAdvance:
+          type: string
+          example: "P60D"
+        sendConfirmationsToOwner:
+          type: boolean
+          example: true
+        allowStaffSelection:
+          type: boolean
+          example: true
+
+    BookingCustomerInfo:
+      type: object
+      description: Kundeninformationen für einen Termin
+      properties:
+        customerId:
+          type: string
+          description: ID des Kunden (falls bereits im System vorhanden)
+        name:
+          type: string
+          example: "Max Mustermann"
+        emailAddress:
+          type: string
+          format: email
+          example: "max@example.de"
+        phone:
+          type: string
+          example: "+4915100000000"
+        notes:
+          type: string
+          example: "VIP-Kunde"
+
+    ErrorResponse:
+      type: object
+      properties:
+        status:
+          type: integer
+          example: 502
+        message:
+          type: string
+          example: "Graph API error: 404 - Entity not found"
+
+    # ── BookingBusiness ───────────────────────────────────────────────────────
+
+    BookingBusiness:
+      type: object
+      description: Buchungsagentur in Microsoft Bookings
+      properties:
+        id:
+          type: string
+          readOnly: true
+          example: "agenturberlin@meinedomain.de"
+        displayName:
+          type: string
+          example: "Agentur Berlin Mitte"
+        businessType:
+          type: string
+          example: "consultancy"
+        email:
+          type: string
+          format: email
+          example: "berlin@meinedomain.de"
+        phone:
+          type: string
+          example: "+4930000000"
+        webSiteUrl:
+          type: string
+          example: "https://www.meinedomain.de"
+        isPublished:
+          type: boolean
+          readOnly: true
+          example: true
+        publicUrl:
+          type: string
+          readOnly: true
+          example: "https://outlook.office.com/book/agenturberlin@meinedomain.de"
+        defaultCurrencyIso:
+          type: string
+          example: "EUR"
+        languageTag:
+          type: string
+          example: "de-DE"
+        address:
+          $ref: '#/components/schemas/PhysicalAddress'
+        businessHours:
+          type: array
+          items:
+            $ref: '#/components/schemas/BookingWorkHours'
+        schedulingPolicy:
+          $ref: '#/components/schemas/BookingSchedulingPolicy'
+        createdDateTime:
+          type: string
+          format: date-time
+          readOnly: true
+        lastUpdatedDateTime:
+          type: string
+          format: date-time
+          readOnly: true
+
+    CreateBookingBusinessRequest:
+      type: object
+      required: [displayName]
+      properties:
+        displayName:
+          type: string
+          example: "Agentur Berlin Mitte"
+        businessType:
+          type: string
+          example: "consultancy"
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        webSiteUrl:
+          type: string
+        defaultCurrencyIso:
+          type: string
+          example: "EUR"
+        languageTag:
+          type: string
+          example: "de-DE"
+        address:
+          $ref: '#/components/schemas/PhysicalAddress'
+        businessHours:
+          type: array
+          items:
+            $ref: '#/components/schemas/BookingWorkHours'
+        schedulingPolicy:
+          $ref: '#/components/schemas/BookingSchedulingPolicy'
+
+    # ── StaffMember ───────────────────────────────────────────────────────────
+
+    BookingStaffMember:
+      type: object
+      description: Mitarbeiter einer Buchungsagentur
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+          example: "311a5454-08b2-4560-ba1c-f715e938cb79"
+        displayName:
+          type: string
+          example: "Maria Müller"
+        emailAddress:
+          type: string
+          format: email
+          example: "maria@meinedomain.de"
+        role:
+          type: string
+          enum: [guest, administrator, viewer, externalGuest, scheduler, teamMember]
+          example: "teamMember"
+        timeZone:
+          type: string
+          example: "Europe/Berlin"
+        useBusinessHours:
+          type: boolean
+          description: Falls true, werden die Geschäftszeiten der Agentur verwendet anstatt eigener workingHours
+          example: true
+        availabilityIsAffectedByPersonalCalendar:
+          type: boolean
+          description: Falls true, beeinflusst der persönliche Kalender des Benutzers seine Verfügbarkeit
+          example: true
+        isEmailNotificationEnabled:
+          type: boolean
+          example: true
+        membershipStatus:
+          type: string
+          enum: [active, pendingAcceptance, rejectedByStaff]
+          readOnly: true
+          example: "active"
+        workingHours:
+          type: array
+          items:
+            $ref: '#/components/schemas/BookingWorkHours'
+        createdDateTime:
+          type: string
+          format: date-time
+          readOnly: true
+        lastUpdatedDateTime:
+          type: string
+          format: date-time
+          readOnly: true
+
+    CreateStaffMemberRequest:
+      type: object
+      required: [displayName, emailAddress, role]
+      properties:
+        displayName:
+          type: string
+          example: "Maria Müller"
+        emailAddress:
+          type: string
+          format: email
+          example: "maria@meinedomain.de"
+        role:
+          type: string
+          enum: [guest, administrator, viewer, externalGuest, scheduler, teamMember]
+          example: "teamMember"
+        timeZone:
+          type: string
+          example: "Europe/Berlin"
+        useBusinessHours:
+          type: boolean
+          default: true
+        availabilityIsAffectedByPersonalCalendar:
+          type: boolean
+          default: false
+        isEmailNotificationEnabled:
+          type: boolean
+          default: true
+        workingHours:
+          type: array
+          description: Nur relevant wenn useBusinessHours=false
+          items:
+            $ref: '#/components/schemas/BookingWorkHours'
+
+    # ── Staff Availability ────────────────────────────────────────────────────
+
+    StaffAvailabilityRequest:
+      type: object
+      required: [staffIds, startDateTime, endDateTime]
+      properties:
+        staffIds:
+          type: array
+          description: Liste der Mitarbeiter-IDs (GUID) für die Abfrage
+          items:
+            type: string
+            format: uuid
+          example:
+            - "311a5454-08b2-4560-ba1c-f715e938cb79"
+        startDateTime:
+          $ref: '#/components/schemas/DateTimeTimeZone'
+        endDateTime:
+          $ref: '#/components/schemas/DateTimeTimeZone'
+
+    StaffAvailabilityItem:
+      type: object
+      description: Verfügbarkeit eines Mitarbeiters im angefragten Zeitraum
+      properties:
+        staffId:
+          type: string
+          format: uuid
+          example: "311a5454-08b2-4560-ba1c-f715e938cb79"
+        availabilityItems:
+          type: array
+          items:
+            $ref: '#/components/schemas/AvailabilityItem'
+
+    AvailabilityItem:
+      type: object
+      description: Zeitfenster mit Verfügbarkeitsstatus
+      properties:
+        status:
+          type: string
+          description: |
+            Status des Mitarbeiters in diesem Zeitfenster:
+            - `Available` → frei
+            - `Busy` → besetzt (siehe serviceId)
+            - `SlotsAvailable` → Zeitfenster verfügbar
+            - `OutOfOffice` → außer Haus
+          enum: [Available, Busy, SlotsAvailable, OutOfOffice]
+          example: "Busy"
+        startDateTime:
+          $ref: '#/components/schemas/DateTimeTimeZone'
+        endDateTime:
+          $ref: '#/components/schemas/DateTimeTimeZone'
+        serviceId:
+          type: string
+          description: ID des Dienstes, der gerade betreut wird (nur wenn status=Busy)
+          example: "57da6774-a087-4d69-b0e6-6fb82c339976"
+
+    # ── Appointment ───────────────────────────────────────────────────────────
+
+    BookingAppointment:
+      type: object
+      description: Gebuchter Termin in einer Buchungsagentur
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        serviceId:
+          type: string
+          format: uuid
+          example: "57da6774-a087-4d69-b0e6-6fb82c339976"
+        serviceName:
+          type: string
+          readOnly: true
+          example: "Steuerberatung 60 Min."
+        startDateTime:
+          $ref: '#/components/schemas/DateTimeTimeZone'
+        endDateTime:
+          $ref: '#/components/schemas/DateTimeTimeZone'
+        duration:
+          type: string
+          readOnly: true
+          example: "PT1H"
+        staffMemberIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+          example: ["311a5454-08b2-4560-ba1c-f715e938cb79"]
+        customers:
+          type: array
+          items:
+            $ref: '#/components/schemas/BookingCustomerInfo'
+        serviceNotes:
+          type: string
+          example: "Erster Kundenbesuch"
+        additionalInformation:
+          type: string
+        price:
+          type: number
+          format: double
+          example: 80.00
+        priceType:
+          type: string
+          example: "fixedPrice"
+        status:
+          type: string
+          readOnly: true
+          enum: [unknown, confirmed, cancelled, unknownFutureValue]
+          example: "confirmed"
+        isLocationOnline:
+          type: boolean
+          example: false
+        joinWebUrl:
+          type: string
+          description: Teams-Besprechungs-URL (wenn isLocationOnline=true)
+        serviceLocation:
+          $ref: '#/components/schemas/Location'
+        createdDateTime:
+          type: string
+          format: date-time
+          readOnly: true
+        lastUpdatedDateTime:
+          type: string
+          format: date-time
+          readOnly: true
+
+    CreateAppointmentRequest:
+      type: object
+      required: [serviceId, startDateTime, endDateTime]
+      properties:
+        serviceId:
+          type: string
+          format: uuid
+          example: "57da6774-a087-4d69-b0e6-6fb82c339976"
+        startDateTime:
+          $ref: '#/components/schemas/DateTimeTimeZone'
+        endDateTime:
+          $ref: '#/components/schemas/DateTimeTimeZone'
+        staffMemberIds:
+          type: array
+          description: IDs der zugewiesenen Mitarbeiter. Wenn leer, weist Bookings automatisch zu.
+          items:
+            type: string
+            format: uuid
+        customers:
+          type: array
+          items:
+            $ref: '#/components/schemas/BookingCustomerInfo'
+        serviceNotes:
+          type: string
+        additionalInformation:
+          type: string
+        serviceLocation:
+          $ref: '#/components/schemas/Location'
+        isLocationOnline:
+          type: boolean
+          default: false
+        optOutOfCustomerEmail:
+          type: boolean
+          description: Falls true, wird keine Bestätigungsmail an den Kunden gesendet
+          default: false
+
+    # ── Service ───────────────────────────────────────────────────────────────
+
+    BookingService:
+      type: object
+      description: Dienst einer Buchungsagentur
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        displayName:
+          type: string
+          example: "Steuerberatung 60 Min."
+        description:
+          type: string
+          example: "Persönliche Steuerberatung"
+        defaultDuration:
+          type: string
+          description: Dauer im ISO-8601-Dauerformat
+          example: "PT1H"
+        defaultPrice:
+          type: number
+          format: double
+          example: 80.00
+        defaultPriceType:
+          type: string
+          enum: [notSet, fixedPrice, startingAt, hourly, free, priceVaries, callUs, notDisplayed]
+          example: "fixedPrice"
+        defaultLocation:
+          $ref: '#/components/schemas/Location'
+        isHiddenFromCustomers:
+          type: boolean
+          example: false
+        isLocationOnline:
+          type: boolean
+          example: false
+        staffMemberIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+        schedulingPolicy:
+          $ref: '#/components/schemas/BookingSchedulingPolicy'
+        createdDateTime:
+          type: string
+          format: date-time
+          readOnly: true
+        lastUpdatedDateTime:
+          type: string
+          format: date-time
+          readOnly: true
+
+    CreateServiceRequest:
+      type: object
+      required: [displayName]
+      properties:
+        displayName:
+          type: string
+          example: "Steuerberatung 60 Min."
+        description:
+          type: string
+        defaultDuration:
+          type: string
+          example: "PT1H"
+        defaultPrice:
+          type: number
+          format: double
+        defaultPriceType:
+          type: string
+          enum: [notSet, fixedPrice, startingAt, hourly, free, priceVaries, callUs, notDisplayed]
+          default: "notSet"
+        defaultLocation:
+          $ref: '#/components/schemas/Location'
+        isHiddenFromCustomers:
+          type: boolean
+          default: false
+        isLocationOnline:
+          type: boolean
+          default: false
+        staffMemberIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+        schedulingPolicy:
+          $ref: '#/components/schemas/BookingSchedulingPolicy'
