@@ -1,0 +1,18 @@
+spring:
+  config:
+    activate:
+      on-profile: feature
+
+# En modo feature simulamos las llamadas a Azure para no gastar cuota.
+azure:
+  graph:
+    tenant-id: dummy-tenant
+    client-id: dummy-client
+    client-secret: dummy-secret
+    scope: https://graph.microsoft.com/.default
+    connect-timeout: PT2S
+    response-timeout: PT2S
+
+logging:
+  level:
+    com.booking.azure.infrastructure.adapter.out.graph: DEBUG

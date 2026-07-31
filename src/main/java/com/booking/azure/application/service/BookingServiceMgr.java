@@ -3,8 +3,8 @@ package com.booking.azure.application.service;
 import com.booking.azure.domain.port.in.ServiceManagement;
 import com.booking.azure.domain.port.out.GraphApiRequest;
 import com.booking.azure.dto.BookingServiceDto;
-import com.booking.azure.infrastructure.adapter.out.graph.dto.GraphListResponse;
-import com.booking.azure.infrastructure.adapter.in.web.dto.request.CreateServiceRequest;
+import com.booking.azure.application.dto.ListResponse;
+import com.booking.azure.domain.command.CreateServiceRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -44,8 +44,8 @@ public class BookingServiceMgr implements ServiceManagement {
     @Override
     public List<BookingServiceDto> listServices(String businessId) {
         log.info("Dienste werden aufgelistet für Betrieb: {}", businessId);
-        GraphListResponse<BookingServiceDto> antwort = graphApiRequest.get(
-                dienstePfad(businessId), GraphListResponse.class);
+        ListResponse<BookingServiceDto> antwort = graphApiRequest.get(
+                dienstePfad(businessId), ListResponse.class);
         return listeMappen(antwort.getValue(), BookingServiceDto.class);
     }
 

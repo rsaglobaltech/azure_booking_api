@@ -1,15 +1,12 @@
-package com.booking.azure.service;
+package com.booking.azure.application.service;
 
 import com.booking.azure.dto.BookingCustomerInfoDto;
 import com.booking.azure.dto.DateTimeTimeZoneDto;
-import com.booking.azure.dto.request.CreateAppointmentRequest;
+import com.booking.azure.domain.command.CreateAppointmentRequest;
 import com.booking.azure.support.GraphApiMockTest;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.web.client.TestRestTemplate;
+import org.testng.annotations.Test;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
@@ -47,9 +44,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Die Tests laufen gegen eine per WireMock simulierte Graph API – kein
  * Azure-Mandant, keine Lizenzen, keine Kosten.
  */
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@DisplayName("Phase 0 – Doppelbuchungen bei gleichzeitigen Anfragen")
-class AppointmentConcurrencyTest extends GraphApiMockTest {
+public class AppointmentConcurrencyTest extends GraphApiMockTest {
 
     /**
      * Bewusst ohne '@': echte bookingBusiness-IDs sind E-Mail-Adressen, doch
@@ -66,14 +61,11 @@ class AppointmentConcurrencyTest extends GraphApiMockTest {
     private static final String GRAPH_TERMIN_PFAD =
             GRAPH_PRAEFIX + "/solutions/bookingBusinesses/" + BETRIEB_ID + "/appointments";
 
-    @Autowired
-    private TestRestTemplate restTemplate;
 
-    private String eigeneApiUrl;
-
-    @BeforeEach
-    void graphAntwortHinterlegen() {
-        eigeneApiUrl = "/api/businesses/" + BETRIEB_ID + "/appointments";
+    @org.testng.annotations.BeforeMethod
+    public void setupTest() {
+        super.grundzustandHerstellen();
+        String eigeneApiUrl = "/api/businesses/" + BETRIEB_ID + "/appointments";
 
         // Graph akzeptiert heute jede Anfrage – auch überlappende. Genau das
         // ist der administrative Endpunkt, den die Anwendung verwendet.
@@ -91,9 +83,8 @@ class AppointmentConcurrencyTest extends GraphApiMockTest {
                                 """.formatted(DIENST_ID))));
     }
 
-    @Test
-    @DisplayName("20 gleichzeitige Anfragen auf denselben Slot dürfen nur einen Termin erzeugen")
-    void gleichzeitigeAnfragenAufDenselbenSlot() throws InterruptedException {
+    @Test(description = "20 gleichzeitige Anfragen auf denselben Slot dürfen nur einen Termin erzeugen")
+    public void gleichzeitigeAnfragenAufDenselbenSlot() throws InterruptedException {
         List<ResponseEntity<String>> antworten = parallelBuchen(
                 GLEICHZEITIGE_ANFRAGEN,
                 nummer -> terminAnfrage("10:00:00", "11:00:00", "kunde" + nummer + "@example.de"));
@@ -125,9 +116,8 @@ class AppointmentConcurrencyTest extends GraphApiMockTest {
                 .isEqualTo(GLEICHZEITIGE_ANFRAGEN - 1L);
     }
 
-    @Test
-    @DisplayName("Teilweise Überschneidung (10:00–11:00 gegen 10:30–11:30) muss abgewiesen werden")
-    void teilweiseUeberschneidung() {
+    @Test(description = "Teilweise Überschneidung (10:00–11:00 gegen 10:30–11:30) muss abgewiesen werden")
+    public void teilweiseUeberschneidung() {
         ResponseEntity<String> erste = buchen(
                 terminAnfrage("10:00:00", "11:00:00", "erste@example.de"));
         ResponseEntity<String> zweite = buchen(
@@ -197,13 +187,14 @@ class AppointmentConcurrencyTest extends GraphApiMockTest {
     }
 
     private ResponseEntity<String> buchen(CreateAppointmentRequest anfrage) {
-        return restTemplate.postForEntity(eigeneApiUrl, anfrage, String.class);
+        String url = "/api/businesses/" + BETRIEB_ID + "/appointments";
+        return restTemplate.exchange(url, HttpMethod.POST, new HttpEntity<>(anfrage, authHeaders), String.class);
     }
 
     private CreateAppointmentRequest terminAnfrage(String startZeit, String endZeit, String kundenEmail) {
         CreateAppointmentRequest anfrage = new CreateAppointmentRequest();
         anfrage.setServiceId(DIENST_ID);
-        anfrage.setStaffMemberIds(List.of(MITARBEITER_ID));
+        anfrage.setWorkerNames(List.of("mitarbeiter-a"));
         anfrage.setStartDateTime(zeitpunkt(startZeit));
         anfrage.setEndDateTime(zeitpunkt(endZeit));
 

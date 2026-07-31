@@ -41,9 +41,12 @@ import java.util.function.Supplier;
  * Wer diese beiden Fälle gleich behandelt, gibt bei einer Zeitüberschreitung
  * einen Slot frei, der in Wahrheit belegt ist.
  */
+import org.springframework.context.annotation.Profile;
+
 @Slf4j
 @Component
 @RequiredArgsConstructor
+@Profile({"integration", "prod", "test"})
 public class GraphApiClient implements GraphApiRequest {
 
     private final WebClient graphWebClient;

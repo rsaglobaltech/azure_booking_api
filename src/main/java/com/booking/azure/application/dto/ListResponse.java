@@ -1,4 +1,4 @@
-package com.booking.azure.infrastructure.adapter.out.graph.dto;
+package com.booking.azure.application.dto;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -11,7 +11,7 @@ import java.util.List;
  */
 @Data
 @JsonIgnoreProperties(ignoreUnknown = true)
-public class GraphListResponse<T> {
+public class ListResponse<T> {
 
     @JsonProperty("@odata.context")
     private String odataContext;

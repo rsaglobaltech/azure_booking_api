@@ -3,8 +3,8 @@ package com.booking.azure.application.service;
 import com.booking.azure.domain.port.in.AgencyManagement;
 import com.booking.azure.domain.port.out.GraphApiRequest;
 import com.booking.azure.dto.BookingBusinessDto;
-import com.booking.azure.infrastructure.adapter.out.graph.dto.GraphListResponse;
-import com.booking.azure.infrastructure.adapter.in.web.dto.request.CreateBookingBusinessRequest;
+import com.booking.azure.application.dto.ListResponse;
+import com.booking.azure.domain.command.CreateBookingBusinessRequest;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -54,8 +54,8 @@ public class BookingBusinessService implements AgencyManagement {
     @Override
     public List<BookingBusinessDto> listBusinesses() {
         log.info("Alle Buchungsbetriebe des Mandanten werden aufgelistet");
-        GraphListResponse<BookingBusinessDto> antwort = graphApiRequest.get(API_PFAD,
-                GraphListResponse.class);
+        ListResponse<BookingBusinessDto> antwort = graphApiRequest.get(API_PFAD,
+                ListResponse.class);
         List<BookingBusinessDto> betriebe = listeMappen(antwort.getValue(), BookingBusinessDto.class);
         betriebe.forEach(this::buchungsUrlSetzen);
         return betriebe;

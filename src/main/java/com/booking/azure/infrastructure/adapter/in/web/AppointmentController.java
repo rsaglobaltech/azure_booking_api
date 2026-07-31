@@ -2,7 +2,7 @@ package com.booking.azure.infrastructure.adapter.in.web;
 
 import com.booking.azure.domain.port.in.AppointmentManagement;
 import com.booking.azure.dto.BookingAppointmentDto;
-import com.booking.azure.infrastructure.adapter.in.web.dto.request.CreateAppointmentRequest;
+import com.booking.azure.domain.command.CreateAppointmentRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -27,7 +27,7 @@ import java.util.List;
  *   DELETE /api/betriebe/{businessId}/termine/{appointmentId}            → Termin stornieren
  */
 @RestController
-@RequestMapping("/api/agencies/{agencyName}/appointments")
+@RequestMapping("/api/businesses/{businessId}/appointments")
 @RequiredArgsConstructor
 public class AppointmentController {
 
@@ -42,8 +42,8 @@ public class AppointmentController {
      */
     @GetMapping
     public ResponseEntity<List<BookingAppointmentDto>> listAppointments(
-            @PathVariable String agencyName) {
-        return ResponseEntity.ok(appointmentManagement.listAppointments(agencyName));
+            @PathVariable String businessId) {
+        return ResponseEntity.ok(appointmentManagement.listAppointments(businessId));
     }
 
     /**
@@ -60,11 +60,11 @@ public class AppointmentController {
      */
     @GetMapping("/calendar")
     public ResponseEntity<List<BookingAppointmentDto>> kalenderAnsichtAbrufen(
-            @PathVariable String agencyName,
+            @PathVariable String businessId,
             @RequestParam String startDateTime,
             @RequestParam String endDateTime) {
         return ResponseEntity.ok(
-                appointmentManagement.kalenderAnsichtAbrufen(agencyName, startDateTime, endDateTime));
+                appointmentManagement.kalenderAnsichtAbrufen(businessId, startDateTime, endDateTime));
     }
 
     /**
@@ -76,9 +76,9 @@ public class AppointmentController {
      */
     @GetMapping("/{appointmentId}")
     public ResponseEntity<BookingAppointmentDto> getAppointment(
-            @PathVariable String agencyName,
+            @PathVariable String businessId,
             @PathVariable String appointmentId) {
-        return ResponseEntity.ok(appointmentManagement.getAppointment(agencyName, appointmentId));
+        return ResponseEntity.ok(appointmentManagement.getAppointment(businessId, appointmentId));
     }
 
     /**
@@ -100,10 +100,10 @@ public class AppointmentController {
      */
     @PostMapping
     public ResponseEntity<BookingAppointmentDto> createAppointment(
-            @PathVariable String agencyName,
+            @PathVariable String businessId,
             @Valid @RequestBody CreateAppointmentRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(appointmentManagement.createAppointment(agencyName, request));
+        BookingAppointmentDto created = appointmentManagement.createAppointment(businessId, request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 
     /**
@@ -116,11 +116,11 @@ public class AppointmentController {
      */
     @PutMapping("/{appointmentId}")
     public ResponseEntity<BookingAppointmentDto> updateAppointment(
-            @PathVariable String agencyName,
+            @PathVariable String businessId,
             @PathVariable String appointmentId,
             @Valid @RequestBody CreateAppointmentRequest request) {
-        return ResponseEntity.ok(
-                appointmentManagement.updateAppointment(agencyName, appointmentId, request));
+        BookingAppointmentDto updated = appointmentManagement.updateAppointment(businessId, appointmentId, request);
+        return ResponseEntity.ok(updated);
     }
 
     /**
@@ -132,9 +132,9 @@ public class AppointmentController {
      */
     @DeleteMapping("/{appointmentId}")
     public ResponseEntity<Void> cancelAppointment(
-            @PathVariable String agencyName,
+            @PathVariable String businessId,
             @PathVariable String appointmentId) {
-        appointmentManagement.cancelAppointment(agencyName, appointmentId);
+        appointmentManagement.cancelAppointment(businessId, appointmentId);
         return ResponseEntity.noContent().build();
     }
 }

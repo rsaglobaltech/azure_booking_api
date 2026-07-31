@@ -1,4 +1,4 @@
-package com.booking.azure.infrastructure.adapter.in.web.dto.request;
+package com.booking.azure.domain.command;
 
 import com.booking.azure.dto.BookingSchedulingPolicyDto;
 import com.booking.azure.dto.LocationDto;

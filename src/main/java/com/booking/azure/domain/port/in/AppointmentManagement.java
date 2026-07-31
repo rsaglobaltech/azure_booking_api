@@ -1,7 +1,7 @@
 package com.booking.azure.domain.port.in;
 
 import com.booking.azure.dto.BookingAppointmentDto;
-import com.booking.azure.infrastructure.adapter.in.web.dto.request.CreateAppointmentRequest;
+import com.booking.azure.domain.command.CreateAppointmentRequest;
 
 import java.util.List;
 

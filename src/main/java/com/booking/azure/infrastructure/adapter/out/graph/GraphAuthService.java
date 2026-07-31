@@ -7,6 +7,7 @@ import com.microsoft.aad.msal4j.IAuthenticationResult;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.context.annotation.Profile;
 import com.booking.azure.infrastructure.config.GraphApiProperties;
 
 import java.net.MalformedURLException;
@@ -28,6 +29,7 @@ import java.util.concurrent.CompletableFuture;
 @Slf4j
 @Service
 @RequiredArgsConstructor
+@Profile({"integration", "prod", "test"})
 public class GraphAuthService {
 
     private final GraphApiProperties properties;

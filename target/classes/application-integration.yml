@@ -1,0 +1,15 @@
+spring:
+  config:
+    activate:
+      on-profile: integration
+
+# En integración, SI se ejecutan las llamadas a Azure.
+# Los valores vendrán sobreescritos por variables de entorno (AZURE_TENANT_ID, etc).
+azure:
+  graph:
+    tenant-id: ${AZURE_TENANT_ID:test-tenant}
+    client-id: ${AZURE_CLIENT_ID:test-client}
+    client-secret: ${AZURE_CLIENT_SECRET:test-secret}
+    scope: https://graph.microsoft.com/.default
+    connect-timeout: PT10S
+    response-timeout: PT10S

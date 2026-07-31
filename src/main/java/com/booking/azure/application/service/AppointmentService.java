@@ -10,8 +10,8 @@ import com.booking.azure.domain.port.in.AppointmentManagement;
 import com.booking.azure.domain.port.out.GraphApiRequest;
 import com.booking.azure.domain.port.out.SlotReservationPort;
 import com.booking.azure.dto.BookingAppointmentDto;
-import com.booking.azure.infrastructure.adapter.out.graph.dto.GraphListResponse;
-import com.booking.azure.infrastructure.adapter.in.web.dto.request.CreateAppointmentRequest;
+import com.booking.azure.application.dto.ListResponse;
+import com.booking.azure.domain.command.CreateAppointmentRequest;
 import com.booking.azure.domain.port.out.AgencyRepository;
 import com.booking.azure.domain.port.out.StaffRepository;
 import lombok.RequiredArgsConstructor;
@@ -71,8 +71,8 @@ public class AppointmentService implements AppointmentManagement {
     public List<BookingAppointmentDto> listAppointments(String agencyName) {
         String businessId = resolveAgency(agencyName).getMsBusinessId();
         log.info("Termine werden aufgelistet für Betrieb: {}", businessId);
-        GraphListResponse<BookingAppointmentDto> antwort = graphApiRequest.get(
-                appointmentsPath(businessId), GraphListResponse.class);
+        ListResponse<BookingAppointmentDto> antwort = graphApiRequest.get(
+                appointmentsPath(businessId), ListResponse.class);
         return listeMappen(antwort.getValue(), BookingAppointmentDto.class);
     }
 
@@ -85,7 +85,7 @@ public class AppointmentService implements AppointmentManagement {
         String path = kalenderPfad(businessId)
                 + "?startDateTime=" + startDatumZeit
                 + "&endDateTime=" + endDatumZeit;
-        GraphListResponse<BookingAppointmentDto> antwort = graphApiRequest.get(path, GraphListResponse.class);
+        ListResponse<BookingAppointmentDto> antwort = graphApiRequest.get(path, ListResponse.class);
         return listeMappen(antwort.getValue(), BookingAppointmentDto.class);
     }
 

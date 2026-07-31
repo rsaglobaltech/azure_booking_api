@@ -3,8 +3,8 @@ package com.booking.azure.application.service;
 import com.booking.azure.domain.port.in.StaffManagement;
 import com.booking.azure.domain.port.out.GraphApiRequest;
 import com.booking.azure.dto.*;
-import com.booking.azure.infrastructure.adapter.in.web.dto.request.CreateStaffMemberRequest;
-import com.booking.azure.infrastructure.adapter.out.graph.dto.GraphListResponse;
+import com.booking.azure.domain.command.CreateStaffMemberRequest;
+import com.booking.azure.application.dto.ListResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -47,8 +47,8 @@ public class StaffMemberService implements StaffManagement {
     @Override
     public List<BookingStaffMemberDto> listStaffMembers(String businessId) {
         log.info("Mitarbeiter werden aufgelistet für Betrieb: {}", businessId);
-        GraphListResponse<BookingStaffMemberDto> antwort = graphApiRequest.get(
-                mitarbeiterPfad(businessId), GraphListResponse.class);
+        ListResponse<BookingStaffMemberDto> antwort = graphApiRequest.get(
+                mitarbeiterPfad(businessId), ListResponse.class);
         return listeMappen(antwort.getValue(), BookingStaffMemberDto.class);
     }
 

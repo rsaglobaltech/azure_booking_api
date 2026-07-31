@@ -1,15 +1,14 @@
-package com.booking.azure.service;
+package com.booking.azure.application.service;
 
 import com.booking.azure.dto.BookingCustomerInfoDto;
 import com.booking.azure.dto.DateTimeTimeZoneDto;
-import com.booking.azure.dto.request.CreateAppointmentRequest;
+import com.booking.azure.domain.command.CreateAppointmentRequest;
 import com.booking.azure.support.GraphApiMockTest;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.web.client.TestRestTemplate;
+import org.testng.annotations.Test;
+import org.testng.annotations.BeforeMethod;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -37,9 +36,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * problemlos – und fällt bei {@link #verwaisteMitTerminWerdenNichtFreigegeben}
  * durch. Deshalb ist der zweite Test der eigentliche Prüfstein.
  */
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@DisplayName("Wiederherstellung verwaister Slot-Reservierungen")
-class SlotWiederherstellungTest extends GraphApiMockTest {
+public class SlotRecoveryTest extends GraphApiMockTest {
 
     private static final String BETRIEB_ID = "agenturtest";
     private static final String DIENST_ID = "dienst-1";
@@ -53,10 +50,7 @@ class SlotWiederherstellungTest extends GraphApiMockTest {
     private static final String EIGENE_API = "/api/businesses/" + BETRIEB_ID + "/appointments";
 
     @Autowired
-    private TestRestTemplate restTemplate;
-
-    @Autowired
-    private SlotWiederherstellungService wiederherstellung;
+    private SlotRecoveryService recovery;
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
@@ -65,8 +59,8 @@ class SlotWiederherstellungTest extends GraphApiMockTest {
      * Erzeugt eine verwaiste Reservierung auf dem realistischen Weg: Graph
      * antwortet zu langsam, die Reservierung bleibt PENDING stehen.
      */
-    @BeforeEach
-    void verwaisteReservierungErzeugen() {
+    @BeforeMethod
+    public void verwaisteReservierungErzeugen() {
         GRAPH_MOCK.stubFor(post(urlPathEqualTo(GRAPH_TERMIN_PFAD))
                 .willReturn(aResponse()
                         .withFixedDelay(5000)
@@ -78,17 +72,15 @@ class SlotWiederherstellungTest extends GraphApiMockTest {
         assertThat(antwort.getStatusCode()).isEqualTo(HttpStatus.GATEWAY_TIMEOUT);
 
         // Frist vorziehen, statt 90 Sekunden zu warten.
-        jdbcTemplate.update(
-                "UPDATE slot_reservation SET expires_at = now() - interval '1 minute' WHERE state = 'PENDING'");
+        jdbcTemplate.execute("UPDATE slot_reservation SET expires_at = CURRENT_TIMESTAMP - INTERVAL '1' MINUTE WHERE state = 'PENDING'");
 
         assertThat(anzahlMitZustand("PENDING"))
                 .as("Vorbedingung: genau eine verwaiste PENDING-Reservierung")
                 .isEqualTo(1);
     }
 
-    @Test
-    @DisplayName("Termin existiert in Graph → wiederherstellen, NICHT freigeben")
-    void verwaisteMitTerminWerdenNichtFreigegeben() {
+    @Test(description = "Termin existiert in Graph → wiederherstellen, NICHT freigeben")
+    public void verwaisteMitTerminWerdenNichtFreigegeben() {
         // Der POST hat Graph doch erreicht: der Termin steht im Kalender.
         graphKalenderLiefert("""
                 {
@@ -102,7 +94,7 @@ class SlotWiederherstellungTest extends GraphApiMockTest {
                 }
                 """.formatted(TERMIN_ID, DIENST_ID, MITARBEITER_A));
 
-        int bearbeitet = wiederherstellung.verwaisteAufraeumen();
+        int bearbeitet = recovery.verwaisteAufraeumen();
 
         assertThat(bearbeitet).isEqualTo(1);
         assertThat(anzahlMitZustand("CONFIRMED"))
@@ -126,12 +118,11 @@ class SlotWiederherstellungTest extends GraphApiMockTest {
                 .isEqualTo(HttpStatus.CONFLICT);
     }
 
-    @Test
-    @DisplayName("Kein Termin in Graph → freigeben, Slot wieder buchbar")
-    void verwaisteOhneTerminWerdenFreigegeben() {
+    @Test(description = "Kein Termin in Graph → freigeben, Slot wieder buchbar")
+    public void verwaisteOhneTerminWerdenFreigegeben() {
         graphKalenderLiefert("{ \"value\": [] }");
 
-        int bearbeitet = wiederherstellung.verwaisteAufraeumen();
+        int bearbeitet = recovery.verwaisteAufraeumen();
 
         assertThat(bearbeitet).isEqualTo(1);
         assertThat(anzahlMitZustand("RELEASED")).isEqualTo(1);
@@ -143,13 +134,12 @@ class SlotWiederherstellungTest extends GraphApiMockTest {
                 .isEqualTo(HttpStatus.CREATED);
     }
 
-    @Test
-    @DisplayName("Graph nicht erreichbar → Reservierung unverändert lassen")
-    void ohneAntwortVonGraphWirdNichtsGeaendert() {
+    @Test(description = "Graph nicht erreichbar → Reservierung unverändert lassen")
+    public void ohneAntwortVonGraphWirdNichtsGeaendert() {
         GRAPH_MOCK.stubFor(get(urlPathEqualTo(GRAPH_KALENDER_PFAD))
                 .willReturn(aResponse().withStatus(503).withBody("{\"error\":\"nicht verfügbar\"}")));
 
-        int bearbeitet = wiederherstellung.verwaisteAufraeumen();
+        int bearbeitet = recovery.verwaisteAufraeumen();
 
         assertThat(bearbeitet)
                 .as("Ohne Antwort von Graph gibt es keine Entscheidungsgrundlage")
@@ -162,9 +152,8 @@ class SlotWiederherstellungTest extends GraphApiMockTest {
                 .isEqualTo(1);
     }
 
-    @Test
-    @DisplayName("Termin eines anderen Mitarbeiters zählt nicht als Treffer")
-    void andererMitarbeiterIstKeinTreffer() {
+    @Test(description = "Termin eines anderen Mitarbeiters zählt nicht als Treffer")
+    public void andererMitarbeiterIstKeinTreffer() {
         graphKalenderLiefert("""
                 {
                   "value": [{
@@ -177,7 +166,7 @@ class SlotWiederherstellungTest extends GraphApiMockTest {
                 }
                 """.formatted(DIENST_ID));
 
-        wiederherstellung.verwaisteAufraeumen();
+        recovery.verwaisteAufraeumen();
 
         assertThat(anzahlMitZustand("RELEASED"))
                 .as("Ein überlappender Termin eines anderen Mitarbeiters gehört nicht zu dieser Reservierung")
@@ -222,7 +211,7 @@ class SlotWiederherstellungTest extends GraphApiMockTest {
     private ResponseEntity<String> buchen() {
         CreateAppointmentRequest anfrage = new CreateAppointmentRequest();
         anfrage.setServiceId(DIENST_ID);
-        anfrage.setStaffMemberIds(List.of(MITARBEITER_A));
+        anfrage.setWorkerNames(List.of(MITARBEITER_A));
         anfrage.setStartDateTime(zeit("2026-08-03T10:00:00"));
         anfrage.setEndDateTime(zeit("2026-08-03T11:00:00"));
 
@@ -231,7 +220,7 @@ class SlotWiederherstellungTest extends GraphApiMockTest {
         kunde.setEmailAddress("kunde@example.de");
         anfrage.setCustomers(List.of(kunde));
 
-        return restTemplate.postForEntity(EIGENE_API, anfrage, String.class);
+        return restTemplate.exchange(EIGENE_API, HttpMethod.POST, new HttpEntity<>(anfrage, authHeaders), String.class);
     }
 
     private DateTimeTimeZoneDto zeit(String zeitstempel) {

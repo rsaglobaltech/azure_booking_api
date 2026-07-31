@@ -1,0 +1,5 @@
+com\booking\azure\support\GraphApiMockTest.class
+com\booking\azure\application\service\SlotRecoveryTest.class
+com\booking\azure\application\service\SlotReservationTest.class
+com\booking\azure\application\service\AppointmentConcurrencyTest.class
+com\booking\azure\architecture\HexagonalArchitectureTest.class
