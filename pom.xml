@@ -20,6 +20,17 @@
     <properties>
         <java.version>17</java.version>
         <msal.version>1.14.3</msal.version>
+        <wiremock.version>3.4.2</wiremock.version>
+        <!-- Überschreibt die von Spring Boot 3.2.3 verwaltete Version 1.19.x.
+             Deren docker-java-Client spricht eine API-Version, die Docker
+             Engine 29 nicht mehr annimmt (HTTP 400 auf /info). -->
+        <testcontainers.version>1.21.3</testcontainers.version>
+        <!-- Docker-API-Version, die Testcontainers anfordert.
+             Docker Engine 29 verlangt mindestens 1.40 und beantwortet ältere
+             Anfragen mit HTTP 400; docker-java handelt von sich aus eine
+             niedrigere Version aus. 1.44 wird von Engine 25 (Januar 2024)
+             an unterstützt. Bei älterem Docker per -Dapi.version=1.41 senken. -->
+        <docker.api.version>1.44</docker.api.version>
     </properties>
 
     <dependencies>
@@ -45,6 +56,26 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+
+        <!-- JPA + PostgreSQL: eigener Zustand als Schiedsrichter gegen Doppelbuchungen.
+             Microsoft Graph bietet keine atomaren Primitive (keine Sperren, kein ETag
+             auf bookingAppointment), daher ist eine eigene Datenbank erforderlich.
+             Siehe docs/PLAN-COLISION-RESERVAS.md §4. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <!-- Flyway: versionierte Schemamigrationen -->
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-core</artifactId>
         </dependency>
 
         <!-- MSAL4J - Microsoft Authentication Library for Java -->
@@ -84,10 +115,46 @@
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
+
+        <!-- WireMock: simula la Microsoft Graph API en los tests.
+             Variante "standalone" (sombreada) para evitar conflictos entre
+             el Jetty/Jackson de WireMock y los de Spring Boot 3. -->
+        <dependency>
+            <groupId>org.wiremock</groupId>
+            <artifactId>wiremock-standalone</artifactId>
+            <version>${wiremock.version}</version>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- Testcontainers: echtes PostgreSQL in den Tests.
+             H2 ist hier KEIN Ersatz – es kennt weder EXCLUDE USING gist noch
+             tstzrange. Mit H2 existierte die Bedingung, die Doppelbuchungen
+             verhindert, im Test schlicht nicht. -->
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
         <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <systemPropertyVariables>
+                        <!-- Von docker-java gelesen; siehe docker.api.version oben. -->
+                        <api.version>${docker.api.version}</api.version>
+                    </systemPropertyVariables>
+                </configuration>
+            </plugin>
+
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>

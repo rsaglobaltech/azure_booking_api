@@ -10,6 +10,31 @@ spring:
     deserialization:
       fail-on-unknown-properties: false
 
+  # ───────────────────────────────────────────────────────────────────────────
+  # PostgreSQL – Schiedsrichter gegen Doppelbuchungen
+  #
+  # Microsoft Graph bietet keine atomaren Primitive. Ohne eigenen Zustand
+  # lässt sich nicht entscheiden, welche von zwei gleichzeitigen Anfragen
+  # einen Slot bekommt. Siehe docs/PLAN-COLISION-RESERVAS.md §4.
+  # ───────────────────────────────────────────────────────────────────────────
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/buchung}
+    username: ${DB_USER:buchung}
+    password: ${DB_PASSWORD:buchung}
+  jpa:
+    open-in-view: false
+    hibernate:
+      # Das Schema verwaltet Flyway, nicht Hibernate. 'validate' stellt sicher,
+      # dass Entitäten und Migrationen nicht auseinanderlaufen.
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Microsoft Azure AD / Graph API – Konfiguration
 # ─────────────────────────────────────────────────────────────────────────────
@@ -36,6 +61,34 @@ buchung:
   # Beispiel: https://outlook.office.com/book/agenturfreiburg@midominio.com
   # Der Agenturname ist IMMER dynamisch und wird aus der Agentur-ID abgeleitet.
   buchungs-basis-url: https://outlook.office.com/book/
+
+  slot-reservierung:
+    # Frist, nach der eine PENDING-Reservierung als verwaist gilt.
+    #
+    # NICHT Teil der Korrektheit: den gegenseitigen Ausschluss garantiert die
+    # EXCLUDE-Bedingung in der Datenbank. Dieser Wert deckt nur den Fall ab,
+    # dass eine Instanz zwischen Reservierung und Graph-Aufruf abstürzt.
+    #
+    # Regel: > p99 der Graph-Latenz plus Reserve. 90 s ist bewusst großzügig;
+    # ein kürzerer Wert ist NICHT die konservative Wahl, sondern erzeugt nur
+    # unnötige Wiederherstellungsläufe, sobald Graph langsamer antwortet.
+    ttl: PT90S
+
+    # Lauf der VERIFIZIERTEN Wiederherstellung: alle 5 Minuten.
+    #
+    # Der Lauf löscht nichts nach Zeitplan. Für jede abgelaufene PENDING-Zeile
+    # fragt er GET /calendarView ab und entscheidet erst danach:
+    #   Termin vorhanden  → CONFIRMED (wiederherstellen, NICHT freigeben)
+    #   Termin fehlt      → RELEASED
+    #   Graph nicht erreichbar → unverändert lassen
+    #
+    # Ein blinder Zeitgeber an dieser Stelle würde Doppelbuchungen erzeugen,
+    # weil das Ablaufen einer Zeile keinen laufenden HTTP-Aufruf abbricht.
+    wiederherstellung-cron: "0 */5 * * * *"
+
+  zeitplanung:
+    # Auf false setzen, um alle geplanten Aufgaben abzuschalten.
+    aktiv: true
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Protokollierung (Logging)

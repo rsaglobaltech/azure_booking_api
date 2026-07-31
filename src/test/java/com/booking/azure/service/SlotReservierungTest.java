@@ -1,0 +1,330 @@
+package com.booking.azure.service;
+
+import com.booking.azure.dto.BookingCustomerInfoDto;
+import com.booking.azure.dto.DateTimeTimeZoneDto;
+import com.booking.azure.dto.request.CreateAppointmentRequest;
+import com.booking.azure.support.GraphApiMockTest;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.web.client.TestRestTemplate;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+
+import java.util.List;
+
+import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
+import static com.github.tomakehurst.wiremock.client.WireMock.delete;
+import static com.github.tomakehurst.wiremock.client.WireMock.patch;
+import static com.github.tomakehurst.wiremock.client.WireMock.post;
+import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
+import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
+import static com.github.tomakehurst.wiremock.client.WireMock.urlPathMatching;
+import static org.assertj.core.api.Assertions.assertThat;
+
+/**
+ * Abnahmekriterien der Slot-Reservierung
+ * (docs/PLAN-COLISION-RESERVAS.md §9).
+ *
+ * Ergänzt {@link AppointmentConcurrencyTest} um die Fälle, die nicht über
+ * Gleichzeitigkeit laufen: Zeitzonen, Kompensation, Stornierung, Umbuchung
+ * und die Grenzen des Überschneidungsbegriffs.
+ */
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@DisplayName("Slot-Reservierung – Abnahmekriterien")
+class SlotReservierungTest extends GraphApiMockTest {
+
+    private static final String BETRIEB_ID = "agenturtest";
+    private static final String DIENST_ID = "dienst-1";
+    private static final String MITARBEITER_A = "mitarbeiter-a";
+    private static final String MITARBEITER_B = "mitarbeiter-b";
+    private static final String TERMIN_ID = "TERMIN-1";
+
+    private static final String GRAPH_TERMIN_PFAD =
+            GRAPH_PRAEFIX + "/solutions/bookingBusinesses/" + BETRIEB_ID + "/appointments";
+    private static final String EIGENE_API = "/api/businesses/" + BETRIEB_ID + "/appointments";
+
+    @Autowired
+    private TestRestTemplate restTemplate;
+
+    // ─────────────────────────── Zeitzonen ───────────────────────────
+
+    @Test
+    @DisplayName("10:00 Europe/Berlin und 08:00 UTC sind derselbe Slot")
+    void zeitzonenWerdenNormalisiert() {
+        graphNimmtTermineAn();
+
+        ResponseEntity<String> berlin = buchen(anfrage(
+                zeit("2026-08-03T10:00:00", "Europe/Berlin"),
+                zeit("2026-08-03T11:00:00", "Europe/Berlin"),
+                MITARBEITER_A));
+
+        ResponseEntity<String> utc = buchen(anfrage(
+                zeit("2026-08-03T08:00:00", "UTC"),
+                zeit("2026-08-03T09:00:00", "UTC"),
+                MITARBEITER_A));
+
+        assertThat(berlin.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        assertThat(utc.getStatusCode())
+                .as("""
+                        Im August gilt in Berlin UTC+2. 10:00 Europe/Berlin und 08:00 UTC sind \
+                        derselbe Zeitpunkt. Ohne Normalisierung nach UTC vor dem \
+                        Datenbankzugriff bliebe diese Kollision unerkannt.""")
+                .isEqualTo(HttpStatus.CONFLICT);
+    }
+
+    @Test
+    @DisplayName("Unbekannte Zeitzone wird mit HTTP 400 abgewiesen, nicht mit 502")
+    void unbekannteZeitzone() {
+        graphNimmtTermineAn();
+
+        ResponseEntity<String> antwort = buchen(anfrage(
+                zeit("2026-08-03T10:00:00", "W. Europe Standard Time"),
+                zeit("2026-08-03T11:00:00", "W. Europe Standard Time"),
+                MITARBEITER_A));
+
+        assertThat(antwort.getStatusCode())
+                .as("Windows-Zonennamen werden bewusst nicht übersetzt – klarer Eingabefehler")
+                .isEqualTo(HttpStatus.BAD_REQUEST);
+    }
+
+    // ─────────────────────────── Grenzen der Überschneidung ───────────────────────────
+
+    @Test
+    @DisplayName("Direkt anschließende Termine (10:00–11:00, 11:00–12:00) kollidieren nicht")
+    void anschliessendeTermineSindErlaubt() {
+        graphNimmtTermineAn();
+
+        ResponseEntity<String> erster = buchen(anfrage(
+                zeit("2026-08-03T10:00:00", "UTC"), zeit("2026-08-03T11:00:00", "UTC"), MITARBEITER_A));
+        ResponseEntity<String> zweiter = buchen(anfrage(
+                zeit("2026-08-03T11:00:00", "UTC"), zeit("2026-08-03T12:00:00", "UTC"), MITARBEITER_A));
+
+        assertThat(erster.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        assertThat(zweiter.getStatusCode())
+                .as("""
+                        Das Intervall ist halboffen '[)': die Endzeit gehört nicht mehr dazu. \
+                        Ein Folgetermin um 11:00 ist zulässig. Andernfalls wäre der Kalender \
+                        nach jedem Termin für eine Sekunde blockiert.""")
+                .isEqualTo(HttpStatus.CREATED);
+    }
+
+    @Test
+    @DisplayName("Gleicher Zeitraum, anderer Mitarbeiter – kein Konflikt")
+    void andererMitarbeiterKeinKonflikt() {
+        graphNimmtTermineAn();
+
+        ResponseEntity<String> a = buchen(anfrage(
+                zeit("2026-08-03T10:00:00", "UTC"), zeit("2026-08-03T11:00:00", "UTC"), MITARBEITER_A));
+        ResponseEntity<String> b = buchen(anfrage(
+                zeit("2026-08-03T10:00:00", "UTC"), zeit("2026-08-03T11:00:00", "UTC"), MITARBEITER_B));
+
+        assertThat(a.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        assertThat(b.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+    }
+
+    @Test
+    @DisplayName("Termin mit zwei Mitarbeitern scheitert, wenn einer davon belegt ist")
+    void einBelegterMitarbeiterBlockiertDieGanzeAnfrage() {
+        graphNimmtTermineAn();
+
+        buchen(anfrage(zeit("2026-08-03T10:00:00", "UTC"),
+                zeit("2026-08-03T11:00:00", "UTC"), MITARBEITER_B));
+
+        ResponseEntity<String> zuZweit = buchen(anfrage(
+                zeit("2026-08-03T10:00:00", "UTC"), zeit("2026-08-03T11:00:00", "UTC"),
+                MITARBEITER_A, MITARBEITER_B));
+
+        assertThat(zuZweit.getStatusCode())
+                .as("Reservierung ist ganz oder gar nicht – B ist belegt, also scheitert die Anfrage")
+                .isEqualTo(HttpStatus.CONFLICT);
+
+        // Und A darf danach nicht halb reserviert zurückbleiben.
+        ResponseEntity<String> nurA = buchen(anfrage(
+                zeit("2026-08-03T10:00:00", "UTC"), zeit("2026-08-03T11:00:00", "UTC"), MITARBEITER_A));
+        assertThat(nurA.getStatusCode())
+                .as("Die gescheiterte Reservierung muss vollständig zurückgerollt sein")
+                .isEqualTo(HttpStatus.CREATED);
+    }
+
+    // ─────────────────────────── Kompensation ───────────────────────────
+
+    @Test
+    @DisplayName("Fehler von Graph gibt den Slot wieder frei")
+    void graphFehlerGibtSlotFrei() {
+        GRAPH_MOCK.stubFor(post(urlPathEqualTo(GRAPH_TERMIN_PFAD))
+                .willReturn(aResponse().withStatus(500).withBody("{\"error\":\"kaputt\"}")));
+
+        ResponseEntity<String> gescheitert = buchen(anfrage(
+                zeit("2026-08-03T10:00:00", "UTC"), zeit("2026-08-03T11:00:00", "UTC"), MITARBEITER_A));
+        assertThat(gescheitert.getStatusCode()).isEqualTo(HttpStatus.BAD_GATEWAY);
+
+        graphNimmtTermineAn();
+        ResponseEntity<String> erneut = buchen(anfrage(
+                zeit("2026-08-03T10:00:00", "UTC"), zeit("2026-08-03T11:00:00", "UTC"), MITARBEITER_A));
+
+        assertThat(erneut.getStatusCode())
+                .as("""
+                        Nach dem Fehlschlag in Graph muss die Reservierung freigegeben worden sein, \
+                        sonst bliebe der Slot dauerhaft blockiert obwohl kein Termin existiert.""")
+                .isEqualTo(HttpStatus.CREATED);
+    }
+
+    @Test
+    @DisplayName("Zeitüberschreitung gibt den Slot NICHT frei – sonst entsteht die Doppelbuchung")
+    void zeitueberschreitungGibtSlotNichtFrei() {
+        // Graph antwortet langsamer als das Zeitlimit (2 s im Testprofil).
+        // Wichtig: die Anfrage erreicht Graph trotzdem – der Termin kann angelegt werden.
+        GRAPH_MOCK.stubFor(post(urlPathEqualTo(GRAPH_TERMIN_PFAD))
+                .willReturn(aResponse()
+                        .withFixedDelay(5000)
+                        .withStatus(201)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody(terminJson())));
+
+        ResponseEntity<String> erste = buchen(anfrage(
+                zeit("2026-08-03T10:00:00", "UTC"), zeit("2026-08-03T11:00:00", "UTC"), MITARBEITER_A));
+
+        assertThat(erste.getStatusCode())
+                .as("Kein definitives Ergebnis von Graph → 504, nicht 502")
+                .isEqualTo(HttpStatus.GATEWAY_TIMEOUT);
+
+        assertThat(GRAPH_MOCK.findAll(postRequestedFor(urlPathEqualTo(GRAPH_TERMIN_PFAD))).size())
+                .as("Die Anfrage hat Graph erreicht – der Termin kann sehr wohl existieren")
+                .isEqualTo(1);
+
+        // Der Client wiederholt, wie es HTTP-Clients nach einer Zeitüberschreitung tun.
+        // Graph antwortet jetzt sofort.
+        graphNimmtTermineAn();
+        ResponseEntity<String> wiederholung = buchen(anfrage(
+                zeit("2026-08-03T10:00:00", "UTC"), zeit("2026-08-03T11:00:00", "UTC"), MITARBEITER_A));
+
+        assertThat(wiederholung.getStatusCode())
+                .as("""
+                        Der Slot muss weiterhin belegt sein. Eine Freigabe bei Zeitüberschreitung \
+                        wäre eine Freigabe ohne Gewissheit: die Wiederholung bekäme den Slot, \
+                        während der erste POST Graph doch noch erreicht – zwei überlappende Termine.""")
+                .isEqualTo(HttpStatus.CONFLICT);
+
+        assertThat(GRAPH_MOCK.findAll(postRequestedFor(urlPathEqualTo(GRAPH_TERMIN_PFAD))).size())
+                .as("Die Wiederholung darf Graph nicht erreichen – sonst entsteht der zweite Termin")
+                .isEqualTo(1);
+    }
+
+    // ─────────────────────────── Stornierung und Umbuchung ───────────────────────────
+
+    @Test
+    @DisplayName("Stornierung gibt den Slot wieder frei")
+    void stornierungGibtSlotFrei() {
+        graphNimmtTermineAn();
+        GRAPH_MOCK.stubFor(delete(urlPathMatching(GRAPH_TERMIN_PFAD + "/.*"))
+                .willReturn(aResponse().withStatus(204)));
+
+        buchen(anfrage(zeit("2026-08-03T10:00:00", "UTC"),
+                zeit("2026-08-03T11:00:00", "UTC"), MITARBEITER_A));
+
+        restTemplate.delete(EIGENE_API + "/" + TERMIN_ID);
+
+        ResponseEntity<String> erneut = buchen(anfrage(
+                zeit("2026-08-03T10:00:00", "UTC"), zeit("2026-08-03T11:00:00", "UTC"), MITARBEITER_A));
+
+        assertThat(erneut.getStatusCode())
+                .as("Ohne Freigabe bei Stornierung bliebe der Slot für immer blockiert")
+                .isEqualTo(HttpStatus.CREATED);
+    }
+
+    @Test
+    @DisplayName("Umbuchung gibt den alten Slot frei und belegt den neuen")
+    void umbuchungTauschtDieSlots() {
+        graphNimmtTermineAn();
+        GRAPH_MOCK.stubFor(patch(urlPathMatching(GRAPH_TERMIN_PFAD + "/.*"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody(terminJson())));
+
+        buchen(anfrage(zeit("2026-08-03T10:00:00", "UTC"),
+                zeit("2026-08-03T11:00:00", "UTC"), MITARBEITER_A));
+
+        restTemplate.put(EIGENE_API + "/" + TERMIN_ID,
+                anfrage(zeit("2026-08-03T14:00:00", "UTC"),
+                        zeit("2026-08-03T15:00:00", "UTC"), MITARBEITER_A));
+
+        ResponseEntity<String> alterSlot = buchen(anfrage(
+                zeit("2026-08-03T10:00:00", "UTC"), zeit("2026-08-03T11:00:00", "UTC"), MITARBEITER_A));
+        assertThat(alterSlot.getStatusCode())
+                .as("Der alte Slot muss nach der Umbuchung wieder frei sein")
+                .isEqualTo(HttpStatus.CREATED);
+
+        ResponseEntity<String> neuerSlot = buchen(anfrage(
+                zeit("2026-08-03T14:00:00", "UTC"), zeit("2026-08-03T15:00:00", "UTC"), MITARBEITER_A));
+        assertThat(neuerSlot.getStatusCode())
+                .as("Der neue Slot muss nach der Umbuchung belegt sein")
+                .isEqualTo(HttpStatus.CONFLICT);
+    }
+
+    @Test
+    @DisplayName("Abgewiesene Buchung erreicht Microsoft Graph nicht")
+    void abgewieseneBuchungErreichtGraphNicht() {
+        graphNimmtTermineAn();
+
+        buchen(anfrage(zeit("2026-08-03T10:00:00", "UTC"),
+                zeit("2026-08-03T11:00:00", "UTC"), MITARBEITER_A));
+        buchen(anfrage(zeit("2026-08-03T10:00:00", "UTC"),
+                zeit("2026-08-03T11:00:00", "UTC"), MITARBEITER_A));
+
+        assertThat(GRAPH_MOCK.findAll(postRequestedFor(urlPathEqualTo(GRAPH_TERMIN_PFAD))).size())
+                .as("Die zweite Anfrage wird vor dem Netzaufruf abgewiesen – spart Graph-Kontingent")
+                .isEqualTo(1);
+    }
+
+    // ─────────────────────────── Hilfsmethoden ───────────────────────────
+
+    private void graphNimmtTermineAn() {
+        GRAPH_MOCK.stubFor(post(urlPathEqualTo(GRAPH_TERMIN_PFAD))
+                .willReturn(aResponse()
+                        .withStatus(201)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody(terminJson())));
+    }
+
+    private static String terminJson() {
+        return """
+                {
+                  "id": "%s",
+                  "serviceId": "%s",
+                  "startDateTime": { "dateTime": "2026-08-03T10:00:00", "timeZone": "UTC" },
+                  "endDateTime":   { "dateTime": "2026-08-03T11:00:00", "timeZone": "UTC" }
+                }
+                """.formatted(TERMIN_ID, DIENST_ID);
+    }
+
+    private ResponseEntity<String> buchen(CreateAppointmentRequest anfrage) {
+        return restTemplate.postForEntity(EIGENE_API, anfrage, String.class);
+    }
+
+    private CreateAppointmentRequest anfrage(DateTimeTimeZoneDto start,
+                                             DateTimeTimeZoneDto ende,
+                                             String... mitarbeiterIds) {
+        CreateAppointmentRequest anfrage = new CreateAppointmentRequest();
+        anfrage.setServiceId(DIENST_ID);
+        anfrage.setStaffMemberIds(List.of(mitarbeiterIds));
+        anfrage.setStartDateTime(start);
+        anfrage.setEndDateTime(ende);
+
+        BookingCustomerInfoDto kunde = new BookingCustomerInfoDto();
+        kunde.setName("Testkunde");
+        kunde.setEmailAddress("kunde@example.de");
+        anfrage.setCustomers(List.of(kunde));
+
+        return anfrage;
+    }
+
+    private DateTimeTimeZoneDto zeit(String zeitstempel, String zone) {
+        DateTimeTimeZoneDto dto = new DateTimeTimeZoneDto();
+        dto.setDateTime(zeitstempel);
+        dto.setTimeZone(zone);
+        return dto;
+    }
+}

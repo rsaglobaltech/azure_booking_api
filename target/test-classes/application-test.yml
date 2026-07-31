@@ -1,0 +1,32 @@
+# Testprofil – keine echten Azure-Zugangsdaten, kein Netzverkehr nach außen.
+#
+# azure.graph.base-url wird NICHT hier gesetzt, sondern zur Laufzeit von
+# GraphApiMockTest über @DynamicPropertySource auf den zufälligen Port des
+# WireMock-Servers gebogen. Ein fester Wert hier würde überschrieben.
+#
+# GraphAuthService ist in den Tests durch @MockBean ersetzt; die folgenden
+# Platzhalter existieren nur, damit der Spring-Kontext startet.
+azure:
+  graph:
+    tenant-id: test-tenant
+    client-id: test-client
+    client-secret: test-secret
+    scope: https://graph.microsoft.com/.default
+    # Kurz gehalten, damit der Zeitüberschreitungsfall geprüft werden kann,
+    # ohne 30 Sekunden zu warten.
+    connect-timeout: PT2S
+    response-timeout: PT2S
+
+buchung:
+  buchungs-basis-url: https://outlook.office.com/book/
+  # Tests rufen den Wiederherstellungslauf direkt auf. Ein nebenher tickender
+  # Zeitplan würde nur nicht reproduzierbare Ergebnisse erzeugen.
+  zeitplanung:
+    aktiv: false
+
+logging:
+  level:
+    com.booking: INFO
+    org.springframework.web: WARN
+    com.github.tomakehurst.wiremock: WARN
+    wiremock: WARN

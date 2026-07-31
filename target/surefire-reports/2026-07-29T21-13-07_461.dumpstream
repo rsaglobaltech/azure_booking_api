@@ -1,0 +1,5 @@
+# Created at 2026-07-29T21:13:07.642
+Boot Manifest-JAR contains absolute paths in classpath 'D:\projects\azure_booking\target\test-classes'
+Hint: <argLine>-Djdk.net.URLClassPath.disableClassPathURLCheck=true</argLine>
+'other' has different root
+

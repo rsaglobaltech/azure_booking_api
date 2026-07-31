@@ -3,13 +3,13 @@ package com.booking.azure.config;
 import io.netty.channel.ChannelOption;
 import io.netty.handler.timeout.ReadTimeoutHandler;
 import io.netty.handler.timeout.WriteTimeoutHandler;
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.netty.http.client.HttpClient;
 
-import java.time.Duration;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -18,27 +18,31 @@ import java.util.concurrent.TimeUnit;
  * Onion-Architektur – Infrastrukturschicht:
  *   Stellt den reaktiven HTTP-Client für den {@code GraphApiClient} bereit.
  *
- * Zeitlimits:
- *   - Verbindungsaufbau: 10 Sekunden
- *   - Antwort lesen:     30 Sekunden
- *   - Anfrage schreiben: 30 Sekunden
+ * Zeitlimits stammen aus {@link GraphApiProperties} (Präfix {@code azure.graph}),
+ * damit Tests sie herabsetzen können, ohne 30 Sekunden zu warten.
  */
 @Configuration
+@RequiredArgsConstructor
 public class WebClientConfig {
 
+    private final GraphApiProperties properties;
+
     /**
-     * Erstellt einen konfigurierten WebClient mit Timeouts für Graph-API-Anfragen.
+     * Erstellt einen konfigurierten WebClient mit Zeitlimits für Graph-API-Anfragen.
      *
      * @return Fertig konfigurierter WebClient
      */
     @Bean
     public WebClient graphWebClient() {
+        int antwortSekunden = (int) properties.getResponseTimeout().toSeconds();
+
         HttpClient httpClient = HttpClient.create()
-                .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 10_000)    // 10 Sekunden Verbindungsaufbau
-                .responseTimeout(Duration.ofSeconds(30))                  // 30 Sekunden Antwort-Timeout
+                .option(ChannelOption.CONNECT_TIMEOUT_MILLIS,
+                        (int) properties.getConnectTimeout().toMillis())
+                .responseTimeout(properties.getResponseTimeout())
                 .doOnConnected(verbindung ->
-                        verbindung.addHandlerLast(new ReadTimeoutHandler(30, TimeUnit.SECONDS))
-                                .addHandlerLast(new WriteTimeoutHandler(30, TimeUnit.SECONDS)));
+                        verbindung.addHandlerLast(new ReadTimeoutHandler(antwortSekunden, TimeUnit.SECONDS))
+                                .addHandlerLast(new WriteTimeoutHandler(antwortSekunden, TimeUnit.SECONDS)));
 
         return WebClient.builder()
                 .clientConnector(new ReactorClientHttpConnector(httpClient))

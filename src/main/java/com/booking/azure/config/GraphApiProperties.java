@@ -4,6 +4,8 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
 import lombok.Data;
 
+import java.time.Duration;
+
 /**
  * Konfigurationseigenschaften für die Microsoft Graph API und Azure AD.
  *
@@ -34,4 +36,21 @@ public class GraphApiProperties {
 
     /** Basis-URL der Microsoft Graph API */
     private String baseUrl;
+
+    /** Zeitlimit für den Verbindungsaufbau. */
+    private Duration connectTimeout = Duration.ofSeconds(10);
+
+    /**
+     * Zeitlimit für die Antwort von Graph.
+     *
+     * <p>Ein Zeitlimit ist <b>kein</b> Mittel des gegenseitigen Ausschlusses.
+     * Es begrenzt nur die Wartezeit – und erzeugt bei jedem Auslösen einen Fall
+     * mit unbekanntem Ausgang ({@code GraphUnbekanntException}).
+     *
+     * <p>Eine Senkung auf ~10 s ist vorgesehen, aber erst <b>nach</b> Einführung
+     * der Idempotenz (Phase 1): mehr Zeitüberschreitungen bedeuten mehr
+     * Wiederholungen, und ohne Idempotenz erhalten die Kunden dafür {@code 409}
+     * statt ihres bereits angelegten Termins.
+     */
+    private Duration responseTimeout = Duration.ofSeconds(30);
 }

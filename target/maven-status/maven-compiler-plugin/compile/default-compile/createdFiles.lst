@@ -1,2 +1,15 @@
+com\booking\azure\infrastructure\persistence\SlotReservationJpaAdapter.class
+com\booking\azure\infrastructure\persistence\SlotReservationRepository.class
+com\booking\azure\service\ZeitzonenUmrechnung.class
+com\booking\azure\domain\exception\SlotConflictException.class
+com\booking\azure\infrastructure\persistence\SlotReservationEntity.class
+com\booking\azure\config\SchedulingConfig.class
+com\booking\azure\domain\exception\GraphAntwortException.class
+com\booking\azure\domain\model\VerwaisteReservierung.class
+com\booking\azure\domain\port\out\SlotReservierung.class
+com\booking\azure\domain\model\SlotStatus.class
 com\booking\azure\controller\StaffMemberController.class
 com\booking\azure\dto\request\CreateServiceRequest.class
+com\booking\azure\domain\model\SlotAnfrage.class
+com\booking\azure\service\SlotWiederherstellungService.class
+com\booking\azure\domain\exception\GraphUnbekanntException.class
