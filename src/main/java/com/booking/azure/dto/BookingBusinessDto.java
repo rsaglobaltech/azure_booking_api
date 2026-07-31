@@ -72,3 +72,5 @@ public class BookingBusinessDto {
     @JsonProperty("lastUpdatedDateTime")
     private String lastUpdatedDateTime;
 }
+
+

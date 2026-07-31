@@ -22,3 +22,5 @@ public class StaffAvailabilityRequestDto {
     @JsonProperty("endDateTime")
     private DateTimeTimeZoneDto endDateTime;
 }
+
+

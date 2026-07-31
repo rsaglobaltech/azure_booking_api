@@ -21,3 +21,5 @@ public class SlotConflictException extends RuntimeException {
         super(nachricht, ursache);
     }
 }
+
+

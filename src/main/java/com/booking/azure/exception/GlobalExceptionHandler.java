@@ -1,7 +1,7 @@
 package com.booking.azure.exception;
 
-import com.booking.azure.domain.exception.GraphAntwortException;
-import com.booking.azure.domain.exception.GraphUnbekanntException;
+import com.booking.azure.domain.exception.GraphResponseException;
+import com.booking.azure.domain.exception.GraphUnknownException;
 import com.booking.azure.domain.exception.SlotConflictException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -67,8 +67,8 @@ public class GlobalExceptionHandler {
      * @param ex Die Ausnahme mit dem Status der Graph-Antwort
      * @return HTTP 502 Bad Gateway
      */
-    @ExceptionHandler(GraphAntwortException.class)
-    public ResponseEntity<Fehlerantwort> graphAntwortfehlerBehandeln(GraphAntwortException ex) {
+    @ExceptionHandler(GraphResponseException.class)
+    public ResponseEntity<Fehlerantwort> graphAntwortfehlerBehandeln(GraphResponseException ex) {
         log.error("Graph antwortete mit Fehlerstatus {}: {}", ex.getStatus(), ex.getMessage());
         return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
                 .body(new Fehlerantwort(HttpStatus.BAD_GATEWAY.value(), ex.getMessage()));
@@ -89,8 +89,8 @@ public class GlobalExceptionHandler {
      * @param ex Die Ausnahme
      * @return HTTP 504 Gateway Timeout
      */
-    @ExceptionHandler(GraphUnbekanntException.class)
-    public ResponseEntity<Fehlerantwort> graphOhneAntwortBehandeln(GraphUnbekanntException ex) {
+    @ExceptionHandler(GraphUnknownException.class)
+    public ResponseEntity<Fehlerantwort> graphOhneAntwortBehandeln(GraphUnknownException ex) {
         log.error("Keine Antwort von Graph, Ausgang unbekannt: {}", ex.getMessage());
         return ResponseEntity.status(HttpStatus.GATEWAY_TIMEOUT)
                 .body(new Fehlerantwort(HttpStatus.GATEWAY_TIMEOUT.value(), ex.getMessage()));
@@ -140,3 +140,5 @@ public class GlobalExceptionHandler {
         }
     }
 }
+
+

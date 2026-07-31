@@ -23,3 +23,5 @@ public class BookingSchedulingPolicyDto {
     @JsonProperty("allowStaffSelection")
     private Boolean allowStaffSelection;
 }
+
+

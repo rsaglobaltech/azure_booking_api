@@ -253,10 +253,21 @@ CREATE UNIQUE INDEX ux_slot_active
     WHERE state IN ('PENDING', 'CONFIRMED');
 ```
 
-#### 2.2 Solapamientos parciales (no sólo inicio idéntico)
+#### 2.2 Solapamientos parciales y Bloqueo Pesimista (Adaptación para Oracle DB)
+
+> [!NOTE]  
+> **Adaptación a Oracle:** Oracle Database no soporta los operadores de rango de tiempo (`tstzrange`) ni los índices `EXCLUDE USING gist` detallados a continuación.  
+> Por tanto, **el algoritmo de colisión ha sido implementado programáticamente en Java** (`SlotReservationJpaAdapter.speichern()`).
+>
+> **¿Cómo funciona el algoritmo actual?**
+> 1. **Bloqueo Pesimista (`PESSIMISTIC_WRITE`)**: Antes de revisar los solapamientos, se bloquea la fila del trabajador (`StaffMapping`) mediante un `SELECT ... FOR UPDATE` a nivel de base de datos (`SpringDataStaffRepository.lockByMsStaffMemberId`).
+> 2. **Comprobación (`Check`)**: Con el trabajador bloqueado de manera exclusiva, se cuenta cuántas reservas activas (estado `PENDING` o `CONFIRMED`) existen para ese trabajador que se solapen con las horas deseadas (`SlotReservationRepository.countOverlappingReservations`).
+> 3. **Inserción o Rechazo**: Si existen colisiones, se lanza un `SlotConflictException` (`HTTP 409`). Si no, se inserta la reserva y se confirma la transacción.
+
+(La siguiente documentación de PostgreSQL se mantiene por contexto histórico):
 
 `start_utc` idéntico no cubre el caso 10:00–11:00 vs 10:30–11:30. Para eso hace falta una
-exclusion constraint sobre rangos:
+exclusion constraint sobre rangos (Originalmente en Postgres):
 
 ```sql
 CREATE EXTENSION IF NOT EXISTS btree_gist;

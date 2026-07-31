@@ -23,3 +23,5 @@ public class PhysicalAddressDto {
     @JsonProperty("countryOrRegion")
     private String countryOrRegion;
 }
+
+

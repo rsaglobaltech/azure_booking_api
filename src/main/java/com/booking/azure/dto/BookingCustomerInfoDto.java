@@ -26,3 +26,5 @@ public class BookingCustomerInfoDto {
     @JsonProperty("notes")
     private String notes;
 }
+
+

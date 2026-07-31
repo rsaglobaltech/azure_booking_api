@@ -10,3 +10,5 @@ public class AzureBookingApplication {
         SpringApplication.run(AzureBookingApplication.class, args);
     }
 }
+
+

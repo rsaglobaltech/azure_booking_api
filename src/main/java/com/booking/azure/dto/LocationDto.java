@@ -14,3 +14,5 @@ public class LocationDto {
     @JsonProperty("address")
     private PhysicalAddressDto address;
 }
+
+

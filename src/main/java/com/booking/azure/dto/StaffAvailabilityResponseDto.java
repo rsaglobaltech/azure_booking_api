@@ -16,3 +16,5 @@ public class StaffAvailabilityResponseDto {
     @JsonProperty("staffAvailabilityItem")
     private List<StaffAvailabilityItemDto> staffAvailabilityItem;
 }
+
+

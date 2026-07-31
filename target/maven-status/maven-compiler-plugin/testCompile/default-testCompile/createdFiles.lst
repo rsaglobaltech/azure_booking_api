@@ -1,4 +1,0 @@
-com\booking\azure\service\SlotReservierungTest.class
-com\booking\azure\support\GraphApiMockTest.class
-com\booking\azure\service\AppointmentConcurrencyTest.class
-com\booking\azure\service\SlotWiederherstellungTest.class
