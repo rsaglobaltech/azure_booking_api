@@ -84,7 +84,7 @@ public class AppointmentConcurrencyTest extends GraphApiMockTest {
     }
 
     @Test(description = "20 gleichzeitige Anfragen auf denselben Slot dürfen nur einen Termin erzeugen")
-    public void gleichzeitigeAnfragenAufDenselbenSlot() throws InterruptedException {
+    public void concurrentRequestsForTheSameSlot() throws InterruptedException {
         List<ResponseEntity<String>> antworten = parallelBuchen(
                 GLEICHZEITIGE_ANFRAGEN,
                 nummer -> appointmentRequest("10:00:00", "11:00:00", "kunde" + nummer + "@example.de"));
@@ -191,12 +191,12 @@ public class AppointmentConcurrencyTest extends GraphApiMockTest {
         return restTemplate.exchange(url, HttpMethod.POST, new HttpEntity<>(request, authHeaders), String.class);
     }
 
-    private CreateAppointmentRequest appointmentRequest(String startZeit, String endZeit, String kundenEmail) {
+    private CreateAppointmentRequest appointmentRequest(String startTime, String endTime, String kundenEmail) {
         CreateAppointmentRequest request = new CreateAppointmentRequest();
         request.setServiceId(DIENST_ID);
         request.setWorkerNames(List.of("mitarbeiter-a"));
-        request.setStartDateTime(moment(startZeit));
-        request.setEndDateTime(moment(endZeit));
+        request.setStartDateTime(moment(startTime));
+        request.setEndDateTime(moment(endTime));
 
         BookingCustomerInfoDto kunde = new BookingCustomerInfoDto();
         kunde.setName("Testkunde");

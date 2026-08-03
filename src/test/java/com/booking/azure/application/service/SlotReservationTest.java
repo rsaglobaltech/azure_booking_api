@@ -67,7 +67,7 @@ public class SlotReservationTest extends GraphApiMockTest {
     }
 
     @Test(description = "Unbekannte Zeitzone wird mit HTTP 400 abgewiesen, nicht mit 502")
-    public void unbekannteZeitzone() {
+    public void unknownTimeZone() {
         graphAcceptsAppointments();
 
         ResponseEntity<String> response = buchen(request(
@@ -83,7 +83,7 @@ public class SlotReservationTest extends GraphApiMockTest {
     // ─────────────────────────── Grenzen der Überschneidung ───────────────────────────
 
     @Test(description = "Direkt anschließende Termine (10:00–11:00, 11:00–12:00) kollidieren nicht")
-    public void anschliessendeTermineSindErlaubt() {
+    public void backToBackAppointmentsAreAllowed() {
         graphAcceptsAppointments();
 
         ResponseEntity<String> erster = buchen(request(
@@ -101,7 +101,7 @@ public class SlotReservationTest extends GraphApiMockTest {
     }
 
     @Test(description = "Gleicher Zeitraum, anderer Mitarbeiter – kein Konflikt")
-    public void andererMitarbeiterKeinKonflikt() {
+    public void differentStaffMemberDoesNotConflict() {
         graphAcceptsAppointments();
 
         ResponseEntity<String> a = buchen(request(
@@ -114,7 +114,7 @@ public class SlotReservationTest extends GraphApiMockTest {
     }
 
     @Test(description = "Termin mit zwei Mitarbeitern scheitert, wenn einer davon belegt ist")
-    public void einBelegterMitarbeiterBlockiertDieGanzeAnfrage() {
+    public void oneBusyStaffMemberBlocksTheWholeRequest() {
         graphAcceptsAppointments();
 
         buchen(request(zeit("2026-08-03T10:00:00", "UTC"),
@@ -139,7 +139,7 @@ public class SlotReservationTest extends GraphApiMockTest {
     // ─────────────────────────── Kompensation ───────────────────────────
 
     @Test(description = "Fehler von Graph gibt den Slot wieder frei")
-    public void graphFehlerGibtSlotFrei() {
+    public void graphFailureReleasesTheSlot() {
         GRAPH_MOCK.stubFor(post(urlPathEqualTo(GRAPH_TERMIN_PFAD))
                 .willReturn(aResponse().withStatus(500).withBody("{\"error\":\"kaputt\"}")));
 

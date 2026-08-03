@@ -32,8 +32,8 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Reservierung, zu der in Graph <b>doch</b> ein Termin existiert. Wird sie
  * freigegeben, entsteht eine lautlose Doppelbuchung.
  *
- * Ein blinder Job besteht {@link #verwaisteOhneTerminWerdenFreigegeben}
- * problemlos – und fällt bei {@link #verwaisteMitTerminWerdenNichtFreigegeben}
+ * Ein blinder Job besteht {@link #orphansWithoutAnAppointmentAreReleased}
+ * problemlos – und fällt bei {@link #orphansWithAnAppointmentAreNotReleased}
  * durch. Deshalb ist der zweite Test der eigentliche Prüfstein.
  */
 public class SlotRecoveryTest extends GraphApiMockTest {
@@ -60,7 +60,7 @@ public class SlotRecoveryTest extends GraphApiMockTest {
      * antwortet zu langsam, die Reservierung bleibt PENDING stehen.
      */
     @BeforeMethod
-    public void verwaisteReservierungErzeugen() {
+    public void createOrphanedReservation() {
         GRAPH_MOCK.stubFor(post(urlPathEqualTo(GRAPH_TERMIN_PFAD))
                 .willReturn(aResponse()
                         .withFixedDelay(5000)
@@ -80,7 +80,7 @@ public class SlotRecoveryTest extends GraphApiMockTest {
     }
 
     @Test(description = "Termin existiert in Graph → wiederherstellen, NICHT freigeben")
-    public void verwaisteMitTerminWerdenNichtFreigegeben() {
+    public void orphansWithAnAppointmentAreNotReleased() {
         // Der POST hat Graph doch erreicht: der Termin steht im Kalender.
         graphKalenderLiefert("""
                 {
@@ -119,7 +119,7 @@ public class SlotRecoveryTest extends GraphApiMockTest {
     }
 
     @Test(description = "Kein Termin in Graph → freigeben, Slot wieder buchbar")
-    public void verwaisteOhneTerminWerdenFreigegeben() {
+    public void orphansWithoutAnAppointmentAreReleased() {
         graphKalenderLiefert("{ \"value\": [] }");
 
         int processed = recovery.recoverOrphaned();
@@ -153,7 +153,7 @@ public class SlotRecoveryTest extends GraphApiMockTest {
     }
 
     @Test(description = "Termin eines anderen Mitarbeiters zählt nicht als Treffer")
-    public void andererMitarbeiterIstKeinTreffer() {
+    public void differentStaffMemberIsNotAMatch() {
         graphKalenderLiefert("""
                 {
                   "value": [{
