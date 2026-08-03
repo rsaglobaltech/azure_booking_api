@@ -1,10 +1,10 @@
 package com.booking.azure.application.service;
 
-import com.booking.azure.domain.port.in.ServiceManagement;
-import com.booking.azure.domain.port.out.GraphApiRequest;
+import com.booking.azure.application.port.in.ServiceManagement;
+import com.booking.azure.application.port.out.GraphApiRequest;
 import com.booking.azure.dto.BookingServiceDto;
 import com.booking.azure.application.dto.ListResponse;
-import com.booking.azure.domain.command.CreateServiceRequest;
+import com.booking.azure.application.command.CreateServiceRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;

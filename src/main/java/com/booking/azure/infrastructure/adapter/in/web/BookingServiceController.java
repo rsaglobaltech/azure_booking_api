@@ -1,8 +1,8 @@
 package com.booking.azure.infrastructure.adapter.in.web;
 
-import com.booking.azure.domain.port.in.ServiceManagement;
+import com.booking.azure.application.port.in.ServiceManagement;
 import com.booking.azure.dto.BookingServiceDto;
-import com.booking.azure.domain.command.CreateServiceRequest;
+import com.booking.azure.application.command.CreateServiceRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;

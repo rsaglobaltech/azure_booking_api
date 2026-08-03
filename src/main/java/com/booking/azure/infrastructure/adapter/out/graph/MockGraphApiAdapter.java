@@ -1,6 +1,6 @@
 package com.booking.azure.infrastructure.adapter.out.graph;
 
-import com.booking.azure.domain.port.out.GraphApiRequest;
+import com.booking.azure.application.port.out.GraphApiRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;

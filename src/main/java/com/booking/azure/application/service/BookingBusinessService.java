@@ -1,10 +1,10 @@
 package com.booking.azure.application.service;
 
-import com.booking.azure.domain.port.in.AgencyManagement;
-import com.booking.azure.domain.port.out.GraphApiRequest;
+import com.booking.azure.application.port.in.AgencyManagement;
+import com.booking.azure.application.port.out.GraphApiRequest;
 import com.booking.azure.dto.BookingBusinessDto;
 import com.booking.azure.application.dto.ListResponse;
-import com.booking.azure.domain.command.CreateBookingBusinessRequest;
+import com.booking.azure.application.command.CreateBookingBusinessRequest;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

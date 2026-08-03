@@ -1,9 +1,9 @@
-package com.booking.azure.domain.port.in;
+package com.booking.azure.application.port.in;
 
 import com.booking.azure.dto.BookingStaffMemberDto;
 import com.booking.azure.dto.StaffAvailabilityItemDto;
 import com.booking.azure.dto.StaffAvailabilityRequestDto;
-import com.booking.azure.domain.command.CreateStaffMemberRequest;
+import com.booking.azure.application.command.CreateStaffMemberRequest;
 
 import java.util.List;
 

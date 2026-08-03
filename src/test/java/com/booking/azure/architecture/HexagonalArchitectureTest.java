@@ -80,10 +80,10 @@ public class HexagonalArchitectureTest {
      * API dictates the shape of the model, and renaming a field becomes a
      * breaking change to a third party's contract.
      */
-    @Test(description = "Domain model, ports and events should not depend on Jackson")
-    public void domainModelIsFreeOfJackson() {
+    @Test(description = "Domain layer should not depend on Jackson")
+    public void domainIsFreeOfJackson() {
         noClasses()
-                .that().resideInAnyPackage("..domain.model..", "..domain.event..", "..domain.port..")
+                .that().resideInAPackage("..domain..")
                 .should().dependOnClassesThat().resideInAnyPackage("com.fasterxml.jackson..")
                 .check(classes);
     }
@@ -93,11 +93,28 @@ public class HexagonalArchitectureTest {
      * incoming HTTP body must look like, not what the model guarantees. The
      * model enforces its own invariants in constructors.
      */
-    @Test(description = "Domain model, ports and events should not depend on Bean Validation")
-    public void domainModelIsFreeOfBeanValidation() {
+    @Test(description = "Domain layer should not depend on Bean Validation")
+    public void domainIsFreeOfBeanValidation() {
         noClasses()
-                .that().resideInAnyPackage("..domain.model..", "..domain.event..", "..domain.port..")
+                .that().resideInAPackage("..domain..")
                 .should().dependOnClassesThat().resideInAnyPackage("jakarta.validation..")
+                .check(classes);
+    }
+
+    /**
+     * The rule the two above cannot express.
+     *
+     * ArchUnit only sees <b>direct</b> dependencies, so a domain class that
+     * referenced {@code BookingAppointmentDto} passed the Jackson rule while
+     * still being shaped by Microsoft Graph's JSON — the annotations were one
+     * hop away. Naming the DTO package closes that gap: transport shapes stop
+     * at the application layer.
+     */
+    @Test(description = "Domain layer should not depend on transport DTOs")
+    public void domainIsFreeOfTransportDtos() {
+        noClasses()
+                .that().resideInAPackage("..domain..")
+                .should().dependOnClassesThat().resideInAnyPackage("com.booking.azure.dto..")
                 .check(classes);
     }
 }

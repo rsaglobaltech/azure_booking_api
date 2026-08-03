@@ -1,4 +1,4 @@
-package com.booking.azure.domain.command;
+package com.booking.azure.application.command;
 
 import com.booking.azure.dto.BookingWorkHoursDto;
 import com.fasterxml.jackson.annotation.JsonProperty;

@@ -6,7 +6,7 @@ import com.booking.azure.domain.model.SlotStatus;
 import com.booking.azure.domain.model.vo.AppointmentId;
 import com.booking.azure.domain.model.vo.BusinessId;
 import com.booking.azure.domain.model.vo.TimeWindow;
-import com.booking.azure.domain.port.in.AppointmentManagement;
+import com.booking.azure.application.port.in.AppointmentManagement;
 import com.booking.azure.domain.port.out.BookingRepository;
 import com.booking.azure.domain.port.out.DomainEventPublisher;
 import com.booking.azure.dto.BookingAppointmentDto;

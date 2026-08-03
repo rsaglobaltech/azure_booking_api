@@ -3,7 +3,7 @@ package com.booking.azure.infrastructure.adapter.out.graph;
 import com.booking.azure.infrastructure.config.GraphApiProperties;
 import com.booking.azure.domain.exception.GraphResponseException;
 import com.booking.azure.domain.exception.GraphUnknownException;
-import com.booking.azure.domain.port.out.GraphApiRequest;
+import com.booking.azure.application.port.out.GraphApiRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;

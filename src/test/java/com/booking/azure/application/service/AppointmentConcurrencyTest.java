@@ -2,7 +2,7 @@ package com.booking.azure.application.service;
 
 import com.booking.azure.dto.BookingCustomerInfoDto;
 import com.booking.azure.dto.DateTimeTimeZoneDto;
-import com.booking.azure.domain.command.CreateAppointmentRequest;
+import com.booking.azure.application.command.CreateAppointmentRequest;
 import com.booking.azure.support.GraphApiMockTest;
 import org.testng.annotations.Test;
 import org.springframework.http.HttpEntity;

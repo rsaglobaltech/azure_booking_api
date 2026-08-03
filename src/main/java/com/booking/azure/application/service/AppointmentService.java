@@ -1,7 +1,7 @@
 package com.booking.azure.application.service;
 
 import com.booking.azure.application.dto.ListResponse;
-import com.booking.azure.domain.command.CreateAppointmentRequest;
+import com.booking.azure.application.command.CreateAppointmentRequest;
 import com.booking.azure.domain.exception.AgencyNotFoundException;
 import com.booking.azure.domain.exception.GraphResponseException;
 import com.booking.azure.domain.model.Agency;
@@ -15,9 +15,9 @@ import com.booking.azure.domain.model.vo.ServiceId;
 import com.booking.azure.domain.model.vo.StaffMemberId;
 import com.booking.azure.domain.model.vo.StaffName;
 import com.booking.azure.domain.model.vo.TimeWindow;
-import com.booking.azure.domain.port.in.AppointmentManagement;
+import com.booking.azure.application.port.in.AppointmentManagement;
 import com.booking.azure.domain.port.out.AgencyRepository;
-import com.booking.azure.domain.port.out.GraphApiRequest;
+import com.booking.azure.application.port.out.GraphApiRequest;
 import com.booking.azure.domain.port.out.BookingRepository;
 import com.booking.azure.domain.port.out.DomainEventPublisher;
 import com.booking.azure.dto.BookingAppointmentDto;

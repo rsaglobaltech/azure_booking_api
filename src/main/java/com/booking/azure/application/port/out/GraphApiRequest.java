@@ -1,4 +1,4 @@
-package com.booking.azure.domain.port.out;
+package com.booking.azure.application.port.out;
 
 /**
  * Ausgehender Port (Sekundär-Adapter-Interface) für HTTP-Anfragen

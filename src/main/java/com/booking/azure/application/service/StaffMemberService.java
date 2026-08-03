@@ -1,9 +1,9 @@
 package com.booking.azure.application.service;
 
-import com.booking.azure.domain.port.in.StaffManagement;
-import com.booking.azure.domain.port.out.GraphApiRequest;
+import com.booking.azure.application.port.in.StaffManagement;
+import com.booking.azure.application.port.out.GraphApiRequest;
 import com.booking.azure.dto.*;
-import com.booking.azure.domain.command.CreateStaffMemberRequest;
+import com.booking.azure.application.command.CreateStaffMemberRequest;
 import com.booking.azure.application.dto.ListResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
