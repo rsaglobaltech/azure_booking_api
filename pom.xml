@@ -31,6 +31,18 @@
              niedrigere Version aus. 1.44 wird von Engine 25 (Januar 2024)
              an unterstützt. Bei älterem Docker per -Dapi.version=1.41 senken. -->
         <docker.api.version>1.44</docker.api.version>
+        <!-- Überschreibt die von Spring Boot 3.2.3 verwaltete Version 1.14.x.
+             Diese kennt Bytecode 68 (Java 24) nicht und bricht beim Erzeugen
+             der Mockito-Mocks ab ("Java 24 (68) is not supported by the current
+             version of Byte Buddy"). Dadurch scheiterte der Start des
+             Spring-Testkontexts und mit ihm die gesamte Testsuite. -->
+        <byte-buddy.version>1.17.5</byte-buddy.version>
+        <!-- Überschreibt die von Spring Boot 3.2.3 verwaltete Version 1.18.30.
+             Diese kennt Bytecode 68 (Java 24) nicht und erzeugt unter einem
+             JDK 24 stillschweigend gar nichts mehr: sämtliche Getter, Setter,
+             Builder und log-Felder fehlten, was zu Hunderten von
+             "cannot find symbol" beim Übersetzen führte. -->
+        <lombok.version>1.18.46</lombok.version>
     </properties>
 
     <dependencies>
@@ -201,6 +213,25 @@
 
     <build>
         <plugins>
+
+            <!-- Seit JDK 23 führt javac die Annotationsverarbeitung nicht mehr
+                 implizit aus, nur weil ein Prozessor im Klassenpfad liegt.
+                 Ohne diesen expliziten Prozessorpfad erzeugt Lombok unter einem
+                 JDK 24 lautlos nichts: keine Getter, keine Builder, kein log –
+                 und der Übersetzer meldet Hunderte "cannot find symbol". -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                            <version>${lombok.version}</version>
+                        </path>
+                    </annotationProcessorPaths>
+                </configuration>
+            </plugin>
 
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>

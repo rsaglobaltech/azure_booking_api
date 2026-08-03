@@ -1,51 +1,45 @@
 package com.booking.azure.domain.model;
 
-import java.time.Instant;
+import com.booking.azure.domain.model.vo.BusinessId;
+import com.booking.azure.domain.model.vo.ServiceId;
+import com.booking.azure.domain.model.vo.StaffMemberId;
+import com.booking.azure.domain.model.vo.TimeWindow;
+
 import java.util.List;
 
 /**
- * Anfrage zur Reservierung eines Zeitfensters für einen oder mehrere Mitarbeiter.
+ * Request to reserve a time window for one or more staff members.
  *
- * Onion-Architektur – Domänenschicht: reines Wertobjekt, keine Abhängigkeit
- * auf JPA, Spring oder Jackson.
+ * Domain layer: a pure value object, with no dependency on JPA, Spring or
+ * Jackson.
  *
- * <p><b>Zeitangaben sind immer UTC.</b> Die Umrechnung aus lokaler Zeit plus
- * Zonenangabe geschieht in der Anwendungsschicht, bevor dieses Objekt entsteht.
- * Ohne diese Normalisierung würden {@code 10:00 Europe/Berlin} und
- * {@code 08:00 UTC} als verschiedene Slots gelten und die Kollision bliebe
- * unerkannt.
+ * <p>The window is a {@link TimeWindow} and therefore always UTC and always
+ * validated. Conversion from local time plus zone happens in the application
+ * layer, before this object is built.
  *
- * @param businessId      ID der Buchungsagentur (bookingBusiness)
- * @param serviceId       ID der Dienstleistung (bookingService)
- * @param mitarbeiterIds Alle zugewiesenen Mitarbeiter; für jeden entsteht eine
- *                       eigene Reservierungszeile. Ist einer davon belegt,
- *                       scheitert die gesamte Reservierung.
- * @param start          Beginn (UTC, inklusive)
- * @param ende           Ende (UTC, exklusiv)
+ * @param businessId     the booking business the slot belongs to
+ * @param serviceId      the service being booked
+ * @param staffMemberIds every assigned staff member; one reservation row is
+ *                       created per member. If any one of them is busy, the
+ *                       whole reservation fails.
+ * @param window         the requested window, UTC, half-open
  */
 public record SlotRequest(
-        String businessId,
-        String serviceId,
-        List<String> mitarbeiterIds,
-        Instant start,
-        Instant ende) {
+        BusinessId businessId,
+        ServiceId serviceId,
+        List<StaffMemberId> staffMemberIds,
+        TimeWindow window) {
 
     public SlotRequest {
-        if (businessId == null || businessId.isBlank()) {
-            throw new IllegalArgumentException("businessId ist erforderlich");
+        if (businessId == null) {
+            throw new IllegalArgumentException("businessId is required");
         }
-        if (mitarbeiterIds == null || mitarbeiterIds.isEmpty()) {
-            throw new IllegalArgumentException("mindestens ein Mitarbeiter ist erforderlich");
+        if (window == null) {
+            throw new IllegalArgumentException("window is required");
         }
-        if (start == null || ende == null) {
-            throw new IllegalArgumentException("start und ende sind erforderlich");
+        if (staffMemberIds == null || staffMemberIds.isEmpty()) {
+            throw new IllegalArgumentException("at least one staff member is required");
         }
-        if (!ende.isAfter(start)) {
-            throw new IllegalArgumentException(
-                    "ende muss nach start liegen (start=" + start + ", ende=" + ende + ")");
-        }
-        mitarbeiterIds = List.copyOf(mitarbeiterIds);
+        staffMemberIds = List.copyOf(staffMemberIds);
     }
 }
-
-

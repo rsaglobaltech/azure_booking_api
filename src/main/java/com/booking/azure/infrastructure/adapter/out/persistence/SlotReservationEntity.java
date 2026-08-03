@@ -36,6 +36,16 @@ public class SlotReservationEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    /**
+     * Identity of the booking aggregate this row belongs to.
+     *
+     * Rows written by the same booking share this value; it is what allows the
+     * aggregate to be rebuilt as a unit instead of guessed at from matching
+     * business, service and window columns.
+     */
+    @Column(name = "booking_id", nullable = false, length = 36)
+    private String bookingId;
+
     @Column(name = "business_id", nullable = false)
     private String businessId;
 

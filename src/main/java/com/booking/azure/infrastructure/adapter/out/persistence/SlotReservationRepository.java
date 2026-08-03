@@ -2,21 +2,28 @@ package com.booking.azure.infrastructure.adapter.out.persistence;
 
 import com.booking.azure.domain.model.SlotStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
-
 /**
- * Spring-Data-Repository für Slot-Reservierungen.
+ * Spring Data repository for slot reservation rows.
  *
- * Onion-Architektur – Infrastrukturschicht.
+ * Infrastructure layer. Rows are grouped into {@code Booking} aggregates by
+ * {@code BookingJpaAdapter}; nothing above that class sees this interface.
  */
 public interface SlotReservationRepository extends JpaRepository<SlotReservationEntity, Long> {
 
+    /**
+     * The overlap check behind the collision algorithm.
+     *
+     * Half-open comparison ({@code start < :endUtc AND end > :startUtc}), matching
+     * {@code TimeWindow.overlaps} exactly: appointments that merely touch do not
+     * collide.
+     */
     @Query("SELECT COUNT(s) FROM SlotReservationEntity s " +
            "WHERE s.businessId = :businessId " +
            "AND s.staffMemberId = :staffMemberId " +
@@ -28,21 +35,21 @@ public interface SlotReservationRepository extends JpaRepository<SlotReservation
             @Param("startUtc") Instant startUtc,
             @Param("endUtc") Instant endUtc);
 
-    /** Aktive Reservierungen zu einem Graph-Termin (für Stornierung und Umbuchung). */
+    /** Every row of one booking aggregate. */
+    List<SlotReservationEntity> findByBookingId(String bookingId);
+
+    /** Active reservations for a Graph appointment (cancellation and reschedule). */
     List<SlotReservationEntity> findByGraphAppointmentIdAndStateIn(
-            String graphAppointmentId, Collection<SlotStatus> zustaende);
+            String graphAppointmentId, Collection<SlotStatus> states);
 
     /**
-     * Verwaiste Reservierungen für den Wiederherstellungsjob.
+     * Orphaned reservations for the recovery job.
      *
-     * <p><b>Achtung:</b> Diese Zeilen dürfen nicht blind freigegeben werden.
-     * Das Ablaufen einer Zeile bricht einen laufenden HTTP-Aufruf nicht ab –
-     * eine blinde Freigabe erzeugt genau die Doppelbuchung, die sie verhindern
-     * soll. Vor der Freigabe ist über {@code GET /calendarView} zu prüfen, ob
-     * der Termin in Graph doch entstanden ist.
-     * Siehe docs/PLAN-COLISION-RESERVAS.md §2.5.
+     * <p><b>Careful:</b> these rows must not be released blindly. A row expiring
+     * does not abort an in-flight HTTP call — a blind release produces exactly
+     * the double booking it is meant to prevent. Check
+     * {@code GET /calendarView} first to see whether the appointment came into
+     * existence after all. See docs/PLAN-COLISION-RESERVAS.md §2.5.
      */
-    List<SlotReservationEntity> findByStateAndExpiresAtBefore(SlotStatus zustand, Instant zeitpunkt);
+    List<SlotReservationEntity> findByStateAndExpiresAtBefore(SlotStatus state, Instant moment);
 }
-
-

@@ -1,8 +1,11 @@
 package com.booking.azure.exception;
 
+import com.booking.azure.domain.exception.AgencyNotFoundException;
+import com.booking.azure.domain.exception.DomainException;
 import com.booking.azure.domain.exception.GraphResponseException;
 import com.booking.azure.domain.exception.GraphUnknownException;
 import com.booking.azure.domain.exception.SlotConflictException;
+import com.booking.azure.domain.exception.StaffMemberNotFoundException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -45,6 +48,23 @@ public class GlobalExceptionHandler {
         log.info("Slot-Kollision abgewiesen: {}", ex.getMessage());
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(new Fehlerantwort(HttpStatus.CONFLICT.value(), ex.getMessage()));
+    }
+
+    /**
+     * Eine angefragte Agentur oder ein angefragter Mitarbeiter existiert nicht.
+     *
+     * Diese Fälle warf die Anwendungsschicht früher selbst als
+     * {@code ResponseStatusException}. Die Übersetzung fachlicher Fehler in
+     * HTTP-Status gehört in diese Schicht, nicht in den Anwendungsfall.
+     *
+     * @param ex Die fachliche Ausnahme
+     * @return HTTP 404 Not Found
+     */
+    @ExceptionHandler({AgencyNotFoundException.class, StaffMemberNotFoundException.class})
+    public ResponseEntity<Fehlerantwort> nichtGefundenBehandeln(DomainException ex) {
+        log.info("Nicht gefunden: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(new Fehlerantwort(HttpStatus.NOT_FOUND.value(), ex.getMessage()));
     }
 
     /**

@@ -94,7 +94,7 @@ public class SlotRecoveryTest extends GraphApiMockTest {
                 }
                 """.formatted(TERMIN_ID, DIENST_ID, MITARBEITER_A));
 
-        int bearbeitet = recovery.verwaisteAufraeumen();
+        int bearbeitet = recovery.recoverOrphaned();
 
         assertThat(bearbeitet).isEqualTo(1);
         assertThat(anzahlMitZustand("CONFIRMED"))
@@ -122,7 +122,7 @@ public class SlotRecoveryTest extends GraphApiMockTest {
     public void verwaisteOhneTerminWerdenFreigegeben() {
         graphKalenderLiefert("{ \"value\": [] }");
 
-        int bearbeitet = recovery.verwaisteAufraeumen();
+        int bearbeitet = recovery.recoverOrphaned();
 
         assertThat(bearbeitet).isEqualTo(1);
         assertThat(anzahlMitZustand("RELEASED")).isEqualTo(1);
@@ -139,7 +139,7 @@ public class SlotRecoveryTest extends GraphApiMockTest {
         GRAPH_MOCK.stubFor(get(urlPathEqualTo(GRAPH_KALENDER_PFAD))
                 .willReturn(aResponse().withStatus(503).withBody("{\"error\":\"nicht verfügbar\"}")));
 
-        int bearbeitet = recovery.verwaisteAufraeumen();
+        int bearbeitet = recovery.recoverOrphaned();
 
         assertThat(bearbeitet)
                 .as("Ohne Antwort von Graph gibt es keine Entscheidungsgrundlage")
@@ -166,7 +166,7 @@ public class SlotRecoveryTest extends GraphApiMockTest {
                 }
                 """.formatted(DIENST_ID));
 
-        recovery.verwaisteAufraeumen();
+        recovery.recoverOrphaned();
 
         assertThat(anzahlMitZustand("RELEASED"))
                 .as("Ein überlappender Termin eines anderen Mitarbeiters gehört nicht zu dieser Reservierung")

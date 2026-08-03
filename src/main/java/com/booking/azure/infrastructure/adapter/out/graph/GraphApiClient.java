@@ -70,7 +70,7 @@ public class GraphApiClient implements GraphApiRequest {
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + authService.getAccessToken())
                 .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
                 .retrieve()
-                .onStatus(HttpStatusCode::isError, antwort -> fehlerAbbilden(antwort))
+                .onStatus(HttpStatusCode::isError, this::fehlerAbbilden)
                 .bodyToMono(antwortTyp)
                 .block());
     }
@@ -94,7 +94,7 @@ public class GraphApiClient implements GraphApiRequest {
                 .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
                 .bodyValue(body)
                 .retrieve()
-                .onStatus(HttpStatusCode::isError, antwort -> fehlerAbbilden(antwort))
+                .onStatus(HttpStatusCode::isError, this::fehlerAbbilden)
                 .bodyToMono(antwortTyp)
                 .block());
     }
@@ -118,7 +118,7 @@ public class GraphApiClient implements GraphApiRequest {
                 .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
                 .bodyValue(body)
                 .retrieve()
-                .onStatus(HttpStatusCode::isError, antwort -> fehlerAbbilden(antwort))
+                .onStatus(HttpStatusCode::isError, this::fehlerAbbilden)
                 .bodyToMono(antwortTyp)
                 .block());
     }
@@ -137,7 +137,7 @@ public class GraphApiClient implements GraphApiRequest {
                 .uri(url)
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + authService.getAccessToken())
                 .retrieve()
-                .onStatus(HttpStatusCode::isError, antwort -> fehlerAbbilden(antwort))
+                .onStatus(HttpStatusCode::isError, this::fehlerAbbilden)
                 .bodyToMono(Void.class)
                 .block());
     }

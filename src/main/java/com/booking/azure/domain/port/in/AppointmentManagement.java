@@ -1,79 +1,76 @@
 package com.booking.azure.domain.port.in;
 
-import com.booking.azure.dto.BookingAppointmentDto;
 import com.booking.azure.domain.command.CreateAppointmentRequest;
+import com.booking.azure.dto.BookingAppointmentDto;
 
 import java.util.List;
 
 /**
- * Eingehender Port (Use-Case-Interface) für die Terminverwaltung.
+ * Inbound port (use-case interface) for appointment management.
  *
- * Onion-Architektur – Domänenschicht:
- * Dieser Port hat keine Abhängigkeiten von äußeren Schichten.
- * Die Präsentationsschicht (Controller) ruft ausschließlich dieses
- * Interface auf; die konkrete Implementierung liegt in der
- * Anwendungsschicht (ApplicationService).
+ * Domain layer: this port has no dependency on outer layers. The presentation
+ * layer (controllers) calls only this interface; the implementation lives in the
+ * application layer.
  *
- * Buchungs-URL-Muster: https://outlook.office.com/book/{agenturName}@domain.com
+ * Booking URL pattern: https://outlook.office.com/book/{agencyName}@domain.com
  */
 public interface AppointmentManagement {
 
     /**
-     * Alle Termine eines Buchungsbetriebs (Agentur) auflisten.
+     * Lists every appointment of a booking business (agency).
      *
-     * @param agencyName ID des Buchungsbetriebs (z. B. agency@midominio.com)
-     * @return Liste aller Termine des Betriebs
+     * @param agencyName name of the agency
+     * @return all appointments of that agency
      */
     List<BookingAppointmentDto> listAppointments(String agencyName);
 
     /**
-     * Termine in einem Datumszeitraum abrufen (Kalenderansicht).
+     * Retrieves the appointments falling in a date range (calendar view).
      *
-     * @param agencyName     ID des Buchungsbetriebs
-     * @param startDatumZeit Startdatum im ISO-8601-Format (z. B.
-     *                       2024-06-01T00:00:00Z)
-     * @param endDatumZeit   Enddatum im ISO-8601-Format
-     * @return Liste der Termine im angegebenen Zeitraum
+     * @param agencyName    name of the agency
+     * @param startDateTime start of the range, ISO-8601 (e.g. 2024-06-01T00:00:00Z)
+     * @param endDateTime   end of the range, ISO-8601
+     * @return the appointments inside the range
      */
-    List<BookingAppointmentDto> kalenderAnsichtAbrufen(String agencyName,
-            String startDatumZeit,
-            String endDatumZeit);
+    List<BookingAppointmentDto> getCalendarView(String agencyName,
+            String startDateTime,
+            String endDateTime);
 
     /**
-     * Einen bestimmten Termin abrufen.
+     * Retrieves a single appointment.
      *
-     * @param agencyName    ID des Buchungsbetriebs
-     * @param appointmentId ID (GUID) des Termins
-     * @return Termindaten
+     * @param agencyName    name of the agency
+     * @param appointmentId id (GUID) of the appointment
+     * @return the appointment
      */
     BookingAppointmentDto getAppointment(String agencyName, String appointmentId);
 
     /**
-     * Einen neuen Termin erstellen und einem Mitarbeiter zuweisen.
+     * Creates a new appointment and assigns it to a staff member.
      *
-     * @param agencyName ID des Buchungsbetriebs
-     * @param request    Anfrage mit Dienst-, Zeit- und Kundendaten
-     * @return Der erstellte Termin
+     * @param agencyName name of the agency
+     * @param request    service, time and customer details
+     * @return the created appointment
      */
     BookingAppointmentDto createAppointment(String agencyName, CreateAppointmentRequest request);
 
     /**
-     * Einen bestehenden Termin aktualisieren.
+     * Updates an existing appointment.
      *
-     * @param agencyName    ID des Buchungsbetriebs
-     * @param appointmentId ID des zu aktualisierenden Termins
-     * @param request       Anfrage mit den neuen Daten
-     * @return Der aktualisierte Termin
+     * @param agencyName    name of the agency
+     * @param appointmentId id of the appointment being updated
+     * @param request       the new details
+     * @return the updated appointment
      */
     BookingAppointmentDto updateAppointment(String agencyName,
             String appointmentId,
             CreateAppointmentRequest request);
 
     /**
-     * Einen Termin stornieren / löschen.
+     * Cancels (deletes) an appointment.
      *
-     * @param agencyName    ID des Buchungsbetriebs
-     * @param appointmentId ID des zu stornierenden Termins
+     * @param agencyName    name of the agency
+     * @param appointmentId id of the appointment being cancelled
      */
     void cancelAppointment(String agencyName, String appointmentId);
 }

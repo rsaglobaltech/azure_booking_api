@@ -59,12 +59,12 @@ public class AppointmentController {
      * @return Gefilterte Terminliste
      */
     @GetMapping("/calendar")
-    public ResponseEntity<List<BookingAppointmentDto>> kalenderAnsichtAbrufen(
+    public ResponseEntity<List<BookingAppointmentDto>> getCalendarView(
             @PathVariable String businessId,
             @RequestParam String startDateTime,
             @RequestParam String endDateTime) {
         return ResponseEntity.ok(
-                appointmentManagement.kalenderAnsichtAbrufen(businessId, startDateTime, endDateTime));
+                appointmentManagement.getCalendarView(businessId, startDateTime, endDateTime));
     }
 
     /**

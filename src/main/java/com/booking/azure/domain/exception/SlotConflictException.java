@@ -1,25 +1,22 @@
 package com.booking.azure.domain.exception;
 
 /**
- * Der angefragte Zeitraum ist für mindestens einen der Mitarbeiter bereits belegt.
+ * The requested time window is already taken for at least one staff member.
  *
- * Onion-Architektur – Domänenschicht: fachliche Ausnahme, unabhängig von HTTP.
- * Die Abbildung auf {@code HTTP 409 Conflict} geschieht im
- * {@code GlobalExceptionHandler} der Präsentationsschicht.
+ * Domain layer: a business failure, independent of HTTP. Mapping it onto
+ * {@code 409 Conflict} happens in the presentation layer's
+ * {@code GlobalExceptionHandler}.
  *
- * <p>Wird ausgelöst, wenn die {@code EXCLUDE}-Bedingung {@code ex_slot_overlap}
- * den Einfügeversuch abweist – also genau dann, wenn eine gleichzeitige oder
- * frühere Anfrage den Slot bereits gewonnen hat.
+ * <p>Raised when the overlap check rejects the insert — that is, exactly when a
+ * concurrent or earlier request has already won the slot.
  */
-public class SlotConflictException extends RuntimeException {
+public class SlotConflictException extends DomainException {
 
-    public SlotConflictException(String nachricht) {
-        super(nachricht);
+    public SlotConflictException(String message) {
+        super(message);
     }
 
-    public SlotConflictException(String nachricht, Throwable ursache) {
-        super(nachricht, ursache);
+    public SlotConflictException(String message, Throwable cause) {
+        super(message, cause);
     }
 }
-
-

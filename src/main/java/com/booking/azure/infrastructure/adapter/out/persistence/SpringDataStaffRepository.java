@@ -13,8 +13,14 @@ import org.springframework.data.repository.query.Param;
 
 @Repository
 public interface SpringDataStaffRepository extends JpaRepository<StaffJpaEntity, Long> {
-    Optional<StaffJpaEntity> findByAgencyIdAndFriendlyName(Long agencyId, String friendlyName);
 
+    /**
+     * Serialises concurrent booking requests for the same staff member.
+     *
+     * Looking staff up by name is deliberately absent: that lookup belongs to
+     * the {@code Agency} aggregate, which loads its staff with the root. This
+     * repository exists only for the lock that guards the overlap check.
+     */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT s FROM StaffJpaEntity s WHERE s.msStaffMemberId = :msStaffMemberId")
     Optional<StaffJpaEntity> lockByMsStaffMemberId(@Param("msStaffMemberId") String msStaffMemberId);
