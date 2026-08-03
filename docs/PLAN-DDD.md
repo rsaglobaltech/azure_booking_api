@@ -102,23 +102,31 @@ y llama a `BookingNotificationPort`. Elimina `AppointmentService.sendNotificatio
 | 2 | Agregado `Agency` + `StaffMember` | `ResponseStatusException` fuera de la capa de aplicación | ✅ |
 | 3 | Agregado `Booking` + `SlotReservation` de dominio | Máquina de estados fuera del adapter; migración `V3__booking_id.sql` | ✅ |
 | 4 | Eventos + bus en memoria | Notificación desacoplada por evento | ✅ |
-| 5 | Casos de uso + ACL de Graph | Puertos de entrada, commands y `GraphApiRequest` fuera del dominio | 🟡 parcial |
-| 6 | Tests + ArchUnit ampliado | 36 tests de dominio sin Spring; 6 reglas nuevas | ✅ |
+| 5 | Casos de uso + ACL de Graph | `AppointmentDraft` + `AppointmentCalendarPort` + traductor en infra | ✅ |
+| 6 | Tests + ArchUnit ampliado | 44 tests sin Spring; 6 reglas nuevas | ✅ |
 | 7 | Barrida alemán → inglés | Todos los identificadores traducidos | 🟡 falta la prosa |
 
+### La ACL, tal como quedó
+
+La escritura pasa por el dominio: `AppointmentDraft` describe la intención y
+`GraphAppointmentAdapter` es la única clase que sabe qué JSON espera Graph.
+
+El draft lleva la **zona del cliente** junto a la ventana UTC. La ventana es UTC porque es la
+única forma en que dos reservas se pueden comparar por solape, pero un cliente reserva
+«10:00 en Berlín» y eso es lo que el calendario debe mostrar. Renderizar el instante de vuelta
+a esa zona reproduce la hora de pared que mandó el cliente, en vez de reescribir en silencio
+todas las citas a UTC al salir.
+
+Las **lecturas se quedan como estaban**, devolviendo `BookingAppointmentDto` directo de Graph.
+Pasarlas por tipos de dominio obligaría a remodelar cada campo que Graph devuelve, y todo lo
+no modelado desaparecería de las respuestas de esta API. Los comandos pasan por el modelo;
+las consultas no lo necesitan.
+
+`GraphApiRequest` sigue existiendo con forma de HTTP para el CRUD administrativo de negocios,
+servicios y personal, donde el sistema es un simple pasamanos — pero ya vive en
+`application/port/out`, una capa a la que sí le corresponde conocer el transporte.
+
 ### Lo que queda
-
-**Fase 5 — la parte profunda de la ACL.** Falta `AppointmentDraft` (tipo de dominio que
-describe la cita a escribir), un puerto de escritura que lo acepte, y el traductor a JSON de
-Graph en infraestructura. Hoy `GraphApiRequest` sigue siendo un puerto con forma de HTTP
-(`get`/`post`/`patch` sobre rutas), aunque ya vive en `application/port/out`, una capa a la
-que sí le corresponde conocer el transporte.
-
-*Riesgo a tener en cuenta al abordarlo:* hoy se envía a Graph el objeto de request original,
-que conserva literalmente el `dateTime` local y el `timeZone` que mandó el cliente. Si el
-payload se construye desde el `TimeWindow` (UTC), el JSON saliente cambia — mismo instante,
-distinta representación. `AppointmentDraft` debería llevar también la zona en que el cliente
-expresó la cita para poder reproducir el formato original.
 
 **Fase 7 — la prosa.** Los identificadores están todos en inglés; los comentarios y javadoc
 siguen en alemán en la infraestructura, los DTOs y los tests. Los archivos reescritos durante
