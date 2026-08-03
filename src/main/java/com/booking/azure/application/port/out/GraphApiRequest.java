@@ -1,5 +1,7 @@
 package com.booking.azure.application.port.out;
 
+import com.booking.azure.domain.model.vo.TenantId;
+
 /**
  * Ausgehender Port (Sekundär-Adapter-Interface) für HTTP-Anfragen
  * an die Microsoft Graph API.
@@ -31,7 +33,7 @@ public interface GraphApiRequest {
      * @return Deserialisiertes Antwortobjekt
      * @throws RuntimeException bei HTTP-Fehlern der Graph API
      */
-    <T> T get(String path, Class<T> responseType);
+    <T> T get(TenantId tenantId, String path, Class<T> responseType);
 
     /**
      * HTTP-POST-Anfrage an die Graph API senden.
@@ -43,7 +45,7 @@ public interface GraphApiRequest {
      * @return Deserialisiertes Antwortobjekt
      * @throws RuntimeException bei HTTP-Fehlern der Graph API
      */
-    <T> T post(String path, Object body, Class<T> responseType);
+    <T> T post(TenantId tenantId, String path, Object body, Class<T> responseType);
 
     /**
      * HTTP-PATCH-Anfrage an die Graph API senden (Teilaktualisierung).
@@ -55,7 +57,7 @@ public interface GraphApiRequest {
      * @return Deserialisiertes Antwortobjekt
      * @throws RuntimeException bei HTTP-Fehlern der Graph API
      */
-    <T> T patch(String path, Object body, Class<T> responseType);
+    <T> T patch(TenantId tenantId, String path, Object body, Class<T> responseType);
 
     /**
      * HTTP-DELETE-Anfrage an die Graph API senden.
@@ -63,7 +65,7 @@ public interface GraphApiRequest {
      * @param path Relativer API-Pfad der zu löschenden Ressource
      * @throws RuntimeException bei HTTP-Fehlern der Graph API
      */
-    void delete(String path);
+    void delete(TenantId tenantId, String path);
 }
 
 

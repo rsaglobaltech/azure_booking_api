@@ -3,6 +3,7 @@ package com.booking.azure.e2e;
 import com.booking.azure.application.command.CreateAppointmentRequest;
 import com.booking.azure.dto.BookingAppointmentDto;
 import com.booking.azure.dto.BookingCustomerInfoDto;
+import com.booking.azure.domain.model.vo.TenantId;
 import com.booking.azure.dto.DateTimeTimeZoneDto;
 import com.booking.azure.support.GraphApiMockTest;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,6 +27,8 @@ import static com.github.tomakehurst.wiremock.client.WireMock.post;
 import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 
 /**
  * End-to-end walk through the booking flow, from the REST endpoint down to the
@@ -216,6 +219,20 @@ public class BookingFlowE2ETest extends GraphApiMockTest {
         assertThat(GRAPH_MOCK.findAll(postRequestedFor(urlPathEqualTo(GRAPH_APPOINTMENTS))))
                 .describedAs("the conflict is decided locally, before any call to Graph")
                 .hasSize(1);
+    }
+
+    @Test(description = "The access token is acquired for the tenant this agency belongs to, "
+            + "not for a globally configured one")
+    public void tokenIsAcquiredForTheAgencysOwnTenant() {
+        graphAcceptsAppointment("appointment-005");
+
+        book(AGENCY_NAME);
+
+        // The clinic's Entra ID directory comes from its mapping row. A single
+        // platform-wide tenant would hand this booking a token minted for
+        // somebody else's directory.
+        verify(authService).getAccessToken(TenantId.of(MS_TENANT_ID));
+        verify(authService, never()).getAccessToken(TenantId.of("some-other-tenant"));
     }
 
     // ─────────────────────────── what the question asked ───────────────────────

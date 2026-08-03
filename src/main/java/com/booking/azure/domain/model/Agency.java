@@ -6,6 +6,7 @@ import com.booking.azure.domain.model.vo.AgencyName;
 import com.booking.azure.domain.model.vo.BusinessId;
 import com.booking.azure.domain.model.vo.StaffMemberId;
 import com.booking.azure.domain.model.vo.StaffName;
+import com.booking.azure.domain.model.vo.TenantId;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -29,11 +30,11 @@ import java.util.List;
  * the two together would force the whole staff list to be loaded and locked for
  * every booking.
  */
-public record Agency(AgencyId id, AgencyName name, String msTenantId, BusinessId businessId, List<StaffMember> staff) {
+public record Agency(AgencyId id, AgencyName name, TenantId tenantId, BusinessId businessId, List<StaffMember> staff) {
 
     public Agency(AgencyId id,
                   AgencyName name,
-                  String msTenantId,
+                  TenantId tenantId,
                   BusinessId businessId,
                   List<StaffMember> staff) {
         if (id == null) {
@@ -42,12 +43,15 @@ public record Agency(AgencyId id, AgencyName name, String msTenantId, BusinessId
         if (name == null) {
             throw new IllegalArgumentException("agency name is required");
         }
+        if (tenantId == null) {
+            throw new IllegalArgumentException("tenantId is required");
+        }
         if (businessId == null) {
             throw new IllegalArgumentException("businessId is required");
         }
         this.id = id;
         this.name = name;
-        this.msTenantId = msTenantId;
+        this.tenantId = tenantId;
         this.businessId = businessId;
         this.staff = staff == null ? List.of() : List.copyOf(staff);
     }
@@ -58,6 +62,17 @@ public record Agency(AgencyId id, AgencyName name, String msTenantId, BusinessId
     @Override
     public BusinessId businessId() {
         return businessId;
+    }
+
+    /**
+     * The Entra ID directory this agency lives in.
+     *
+     * Every outbound call on this agency's behalf must be authenticated against
+     * this tenant, not against a globally configured one.
+     */
+    @Override
+    public TenantId tenantId() {
+        return tenantId;
     }
 
     /**

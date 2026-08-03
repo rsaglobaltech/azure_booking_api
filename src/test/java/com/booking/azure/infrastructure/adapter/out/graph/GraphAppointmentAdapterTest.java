@@ -9,6 +9,7 @@ import com.booking.azure.domain.model.vo.CustomerContact;
 import com.booking.azure.domain.model.vo.ServiceId;
 import com.booking.azure.domain.model.vo.ServiceLocation;
 import com.booking.azure.domain.model.vo.StaffMemberId;
+import com.booking.azure.domain.model.vo.TenantId;
 import com.booking.azure.domain.model.vo.TimeWindow;
 import com.booking.azure.dto.BookingAppointmentDto;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -31,6 +32,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 public class GraphAppointmentAdapterTest {
 
+    private static final TenantId TENANT = TenantId.of("1111-2222-3333");
     private static final BusinessId BUSINESS = BusinessId.of("business-1");
     private static final Instant START = Instant.parse("2026-03-01T08:00:00Z");
     private static final Instant END = Instant.parse("2026-03-01T09:00:00Z");
@@ -39,28 +41,32 @@ public class GraphAppointmentAdapterTest {
     static final class CapturingGraph implements GraphApiRequest {
         Object body;
         String path;
+        TenantId tenantId;
 
         @Override
-        public <T> T get(String path, Class<T> responseType) {
+        public <T> T get(TenantId tenantId, String path, Class<T> responseType) {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public <T> T post(String path, Object body, Class<T> responseType) {
+        public <T> T post(TenantId tenantId, String path, Object body, Class<T> responseType) {
+            this.tenantId = tenantId;
             this.path = path;
             this.body = body;
             return null;
         }
 
         @Override
-        public <T> T patch(String path, Object body, Class<T> responseType) {
+        public <T> T patch(TenantId tenantId, String path, Object body, Class<T> responseType) {
+            this.tenantId = tenantId;
             this.path = path;
             this.body = body;
             return null;
         }
 
         @Override
-        public void delete(String path) {
+        public void delete(TenantId tenantId, String path) {
+            this.tenantId = tenantId;
             this.path = path;
         }
     }
@@ -92,7 +98,7 @@ public class GraphAppointmentAdapterTest {
     @Test(description = "The window is rendered back into the zone the caller booked in, "
             + "not rewritten into UTC")
     public void rendersTimesInTheCallersZone() throws Exception {
-        adapter.create(BUSINESS, draft(ZoneId.of("Europe/Berlin")));
+        adapter.create(TENANT, BUSINESS, draft(ZoneId.of("Europe/Berlin")));
 
         String json = sentJson();
         // 08:00Z is 09:00 in Berlin on this date (CET, UTC+1)
@@ -103,7 +109,7 @@ public class GraphAppointmentAdapterTest {
 
     @Test(description = "A UTC draft renders as UTC")
     public void rendersUtcWhenThatIsTheCallersZone() throws Exception {
-        adapter.create(BUSINESS, draft(ZoneOffset.UTC));
+        adapter.create(TENANT, BUSINESS, draft(ZoneOffset.UTC));
 
         assertThat(sentJson())
                 .contains("\"dateTime\":\"2026-03-01T08:00:00\"")
@@ -112,7 +118,7 @@ public class GraphAppointmentAdapterTest {
 
     @Test(description = "Absent optional fields are omitted rather than sent as null")
     public void omitsAbsentFields() throws Exception {
-        adapter.create(BUSINESS, draft(ZoneOffset.UTC));
+        adapter.create(TENANT, BUSINESS, draft(ZoneOffset.UTC));
 
         assertThat(sentJson())
                 .doesNotContain("customers")
@@ -129,7 +135,7 @@ public class GraphAppointmentAdapterTest {
     }
 
     private String sentJsonOf(AppointmentDraft draft) throws Exception {
-        adapter.create(BUSINESS, draft);
+        adapter.create(TENANT, BUSINESS, draft);
         return sentJson();
     }
 
@@ -144,7 +150,7 @@ public class GraphAppointmentAdapterTest {
                         CustomerContact.of("Ada", "ada@example.com"), "cust-1", "+34600000000", "window seat"),
                 null, null, null, null, null);
 
-        adapter.create(BUSINESS, withCustomer);
+        adapter.create(TENANT, BUSINESS, withCustomer);
 
         assertThat(sentJson())
                 .contains("\"name\":\"Ada\"")
@@ -165,7 +171,7 @@ public class GraphAppointmentAdapterTest {
                 new ServiceLocation("Room 3", null, null, null, null, null),
                 null, null);
 
-        adapter.create(BUSINESS, withLocation);
+        adapter.create(TENANT, BUSINESS, withLocation);
 
         assertThat(sentJson())
                 .contains("\"displayName\":\"Room 3\"")
@@ -174,10 +180,10 @@ public class GraphAppointmentAdapterTest {
 
     @Test(description = "Paths follow the Graph appointment resource layout")
     public void buildsTheExpectedPaths() {
-        adapter.create(BUSINESS, draft(ZoneOffset.UTC));
+        adapter.create(TENANT, BUSINESS, draft(ZoneOffset.UTC));
         assertThat(graph.path).isEqualTo("/solutions/bookingBusinesses/business-1/appointments");
 
-        adapter.cancel(BUSINESS, AppointmentId.of("appointment-9"));
+        adapter.cancel(TENANT, BUSINESS, AppointmentId.of("appointment-9"));
         assertThat(graph.path)
                 .isEqualTo("/solutions/bookingBusinesses/business-1/appointments/appointment-9");
     }
@@ -185,7 +191,7 @@ public class GraphAppointmentAdapterTest {
     @Test(description = "Update targets the individual appointment")
     public void updateTargetsTheAppointment() {
         BookingAppointmentDto ignored =
-                adapter.update(BUSINESS, AppointmentId.of("appointment-9"), draft(ZoneOffset.UTC));
+                adapter.update(TENANT, BUSINESS, AppointmentId.of("appointment-9"), draft(ZoneOffset.UTC));
 
         assertThat(graph.path)
                 .isEqualTo("/solutions/bookingBusinesses/business-1/appointments/appointment-9");

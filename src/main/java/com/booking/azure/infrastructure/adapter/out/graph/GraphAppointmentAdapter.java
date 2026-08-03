@@ -8,6 +8,7 @@ import com.booking.azure.domain.model.vo.AppointmentId;
 import com.booking.azure.domain.model.vo.BusinessId;
 import com.booking.azure.domain.model.vo.ServiceLocation;
 import com.booking.azure.domain.model.vo.StaffMemberId;
+import com.booking.azure.domain.model.vo.TenantId;
 import com.booking.azure.dto.BookingAppointmentDto;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -38,21 +39,21 @@ public class GraphAppointmentAdapter implements AppointmentCalendarPort {
     private final GraphApiRequest graphApiRequest;
 
     @Override
-    public BookingAppointmentDto create(BusinessId businessId, AppointmentDraft draft) {
-        return graphApiRequest.post(appointmentsPath(businessId), toPayload(draft),
+    public BookingAppointmentDto create(TenantId tenantId, BusinessId businessId, AppointmentDraft draft) {
+        return graphApiRequest.post(tenantId, appointmentsPath(businessId), toPayload(draft),
                 BookingAppointmentDto.class);
     }
 
     @Override
-    public BookingAppointmentDto update(BusinessId businessId, AppointmentId appointmentId,
-                                        AppointmentDraft draft) {
-        return graphApiRequest.patch(appointmentPath(businessId, appointmentId), toPayload(draft),
+    public BookingAppointmentDto update(TenantId tenantId, BusinessId businessId,
+                                        AppointmentId appointmentId, AppointmentDraft draft) {
+        return graphApiRequest.patch(tenantId, appointmentPath(businessId, appointmentId), toPayload(draft),
                 BookingAppointmentDto.class);
     }
 
     @Override
-    public void cancel(BusinessId businessId, AppointmentId appointmentId) {
-        graphApiRequest.delete(appointmentPath(businessId, appointmentId));
+    public void cancel(TenantId tenantId, BusinessId businessId, AppointmentId appointmentId) {
+        graphApiRequest.delete(tenantId, appointmentPath(businessId, appointmentId));
     }
 
     private String appointmentsPath(BusinessId businessId) {

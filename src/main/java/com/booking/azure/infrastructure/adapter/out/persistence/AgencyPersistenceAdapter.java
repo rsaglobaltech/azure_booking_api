@@ -7,6 +7,7 @@ import com.booking.azure.domain.model.vo.AgencyName;
 import com.booking.azure.domain.model.vo.BusinessId;
 import com.booking.azure.domain.model.vo.StaffMemberId;
 import com.booking.azure.domain.model.vo.StaffName;
+import com.booking.azure.domain.model.vo.TenantId;
 import com.booking.azure.domain.port.out.AgencyRepository;
 import com.booking.azure.infrastructure.adapter.out.persistence.entity.AgencyJpaEntity;
 import com.booking.azure.infrastructure.adapter.out.persistence.entity.StaffJpaEntity;
@@ -47,7 +48,7 @@ public class AgencyPersistenceAdapter implements AgencyRepository {
         return new Agency(
                 AgencyId.of(entity.getId()),
                 AgencyName.of(entity.getFriendlyName()),
-                entity.getMsTenantId(),
+                TenantId.of(entity.getMsTenantId()),
                 BusinessId.of(entity.getMsBusinessId()),
                 staff);
     }

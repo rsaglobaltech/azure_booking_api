@@ -1,6 +1,10 @@
 package com.booking.azure.application.service;
 
 import com.booking.azure.application.port.in.AgencyManagement;
+import com.booking.azure.domain.model.Agency;
+import com.booking.azure.domain.model.vo.BusinessId;
+import com.booking.azure.domain.model.vo.TenantId;
+import com.booking.azure.domain.port.out.AgencyRepository;
 import com.booking.azure.application.port.out.GraphApiRequest;
 import com.booking.azure.dto.BookingBusinessDto;
 import com.booking.azure.application.dto.ListResponse;
@@ -35,6 +39,12 @@ public class BookingBusinessService implements AgencyManagement {
 
     /** Ausgehender Port – wird durch den GraphApiClient implementiert */
     private final GraphApiRequest graphApiRequest;
+    private final AgencyRepository agencyRepository;
+
+    /** The platform's own Entra ID directory. */
+    @Value("${azure.graph.tenant-id}")
+    private String homeTenantId;
+
     private final ObjectMapper objectMapper;
 
     /** Basis-URL der Microsoft Bookings Selbstbuchungsseite */
@@ -54,7 +64,7 @@ public class BookingBusinessService implements AgencyManagement {
     @Override
     public List<BookingBusinessDto> listBusinesses() {
         log.info("Alle Buchungsbetriebe des Mandanten werden aufgelistet");
-        ListResponse<BookingBusinessDto> response = graphApiRequest.get(API_PFAD,
+        ListResponse<BookingBusinessDto> response = graphApiRequest.get(homeTenant(), API_PFAD,
                 ListResponse.class);
         List<BookingBusinessDto> betriebe = listeMappen(response.getValue(), BookingBusinessDto.class);
         betriebe.forEach(this::buchungsUrlSetzen);
@@ -72,7 +82,7 @@ public class BookingBusinessService implements AgencyManagement {
     @Override
     public BookingBusinessDto getBusiness(String businessId) {
         log.info("Buchungsbetrieb wird abgerufen: {}", businessId);
-        BookingBusinessDto business = graphApiRequest.get(API_PFAD + "/" + businessId,
+        BookingBusinessDto business = graphApiRequest.get(tenantOf(businessId), API_PFAD + "/" + businessId,
                 BookingBusinessDto.class);
         buchungsUrlSetzen(business);
         return business;
@@ -87,7 +97,7 @@ public class BookingBusinessService implements AgencyManagement {
     @Override
     public BookingBusinessDto createBusiness(CreateBookingBusinessRequest request) {
         log.info("Neuer Buchungsbetrieb wird erstellt: {}", request.getDisplayName());
-        BookingBusinessDto ergebnis = graphApiRequest.post(API_PFAD, request, BookingBusinessDto.class);
+        BookingBusinessDto ergebnis = graphApiRequest.post(homeTenant(), API_PFAD, request, BookingBusinessDto.class);
         buchungsUrlSetzen(ergebnis);
         return ergebnis;
     }
@@ -103,7 +113,7 @@ public class BookingBusinessService implements AgencyManagement {
     public BookingBusinessDto updateBusiness(String businessId,
                                                    CreateBookingBusinessRequest request) {
         log.info("Buchungsbetrieb wird aktualisiert: {}", businessId);
-        BookingBusinessDto ergebnis = graphApiRequest.patch(API_PFAD + "/" + businessId,
+        BookingBusinessDto ergebnis = graphApiRequest.patch(tenantOf(businessId), API_PFAD + "/" + businessId,
                 request, BookingBusinessDto.class);
         buchungsUrlSetzen(ergebnis);
         return ergebnis;
@@ -117,7 +127,7 @@ public class BookingBusinessService implements AgencyManagement {
     @Override
     public void deleteBusiness(String businessId) {
         log.info("Buchungsbetrieb wird gelöscht: {}", businessId);
-        graphApiRequest.delete(API_PFAD + "/" + businessId);
+        graphApiRequest.delete(tenantOf(businessId), API_PFAD + "/" + businessId);
     }
 
     /**
@@ -131,7 +141,7 @@ public class BookingBusinessService implements AgencyManagement {
     public void publishBusiness(String businessId) {
         log.info("Buchungsseite wird veröffentlicht für Betrieb: {}", businessId);
         log.info("Buchungs-URL nach Veröffentlichung: {}{}", buchungsBasisUrl, businessId);
-        graphApiRequest.post(API_PFAD + "/" + businessId + "/publish", "", String.class);
+        graphApiRequest.post(tenantOf(businessId), API_PFAD + "/" + businessId + "/publish", "", String.class);
     }
 
     /**
@@ -142,7 +152,7 @@ public class BookingBusinessService implements AgencyManagement {
     @Override
     public void deactivateBusiness(String businessId) {
         log.info("Buchungsseite wird deaktiviert für Betrieb: {}", businessId);
-        graphApiRequest.post(API_PFAD + "/" + businessId + "/unpublish", "", String.class);
+        graphApiRequest.post(tenantOf(businessId), API_PFAD + "/" + businessId + "/unpublish", "", String.class);
     }
 
     // ─────────────────────────────── Hilfsmethoden ──────────────────────────────
@@ -166,6 +176,25 @@ public class BookingBusinessService implements AgencyManagement {
         return objectMapper.convertValue(rohliste,
                 objectMapper.getTypeFactory().constructCollectionType(List.class, zielklasse));
     }
+
+    // ─────────────────────────── tenant resolution ───────────────────────────
+
+    /**
+     * The directory a booking business lives in.
+     *
+     * Falls back to the platform's own tenant when the business is not
+     * registered locally — the administrative surface can also manage Graph
+     * objects that have no mapping row yet, for instance while one is being
+     * created.
+     */
+    private TenantId tenantOf(String businessId) {
+        return agencyRepository.findByBusinessId(BusinessId.of(businessId))
+                .map(Agency::tenantId)
+                .orElseGet(this::homeTenant);
+    }
+
+    /** The platform's own directory, for calls that name no agency. */
+    private TenantId homeTenant() {
+        return TenantId.of(homeTenantId);
+    }
 }
-
-

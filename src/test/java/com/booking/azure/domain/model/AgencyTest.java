@@ -6,6 +6,7 @@ import com.booking.azure.domain.model.vo.AgencyName;
 import com.booking.azure.domain.model.vo.BusinessId;
 import com.booking.azure.domain.model.vo.StaffMemberId;
 import com.booking.azure.domain.model.vo.StaffName;
+import com.booking.azure.domain.model.vo.TenantId;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -23,7 +24,7 @@ public class AgencyTest {
         return new Agency(
                 AgencyId.of(1L),
                 AgencyName.of("Downtown"),
-                "tenant-1",
+                TenantId.of("tenant-1"),
                 BusinessId.of("business-1"),
                 List.of(
                         new StaffMember(StaffMemberId.of("id-anna"), StaffName.of("Anna")),
@@ -62,7 +63,7 @@ public class AgencyTest {
 
     @Test(description = "An agency without staff cannot resolve anything")
     public void agencyWithoutStaffResolvesNothing() {
-        Agency empty = new Agency(AgencyId.of(2L), AgencyName.of("Empty"), "tenant-1",
+        Agency empty = new Agency(AgencyId.of(2L), AgencyName.of("Empty"), TenantId.of("tenant-1"),
                 BusinessId.of("business-2"), List.of());
 
         assertThatThrownBy(() -> empty.resolveStaff(StaffName.of("Anna")))

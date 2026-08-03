@@ -3,6 +3,7 @@ package com.booking.azure.application.port.out;
 import com.booking.azure.domain.model.AppointmentDraft;
 import com.booking.azure.domain.model.vo.AppointmentId;
 import com.booking.azure.domain.model.vo.BusinessId;
+import com.booking.azure.domain.model.vo.TenantId;
 import com.booking.azure.dto.BookingAppointmentDto;
 
 /**
@@ -31,12 +32,12 @@ public interface AppointmentCalendarPort {
      * @return the created appointment as the calendar reports it, which is also
      *         what this API returns to its caller
      */
-    BookingAppointmentDto create(BusinessId businessId, AppointmentDraft draft);
+    BookingAppointmentDto create(TenantId tenantId, BusinessId businessId, AppointmentDraft draft);
 
     /** Rewrites an existing appointment with the draft's contents. */
-    BookingAppointmentDto update(BusinessId businessId, AppointmentId appointmentId,
-                                 AppointmentDraft draft);
+    BookingAppointmentDto update(TenantId tenantId, BusinessId businessId,
+                                 AppointmentId appointmentId, AppointmentDraft draft);
 
     /** Removes the appointment from the calendar. */
-    void cancel(BusinessId businessId, AppointmentId appointmentId);
+    void cancel(TenantId tenantId, BusinessId businessId, AppointmentId appointmentId);
 }

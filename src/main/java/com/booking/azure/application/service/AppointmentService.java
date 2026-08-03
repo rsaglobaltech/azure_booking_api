@@ -79,10 +79,11 @@ public class AppointmentService implements AppointmentManagement {
 
     @Override
     public List<BookingAppointmentDto> listAppointments(String agencyName) {
-        String businessId = resolveAgency(agencyName).businessId().value();
+        Agency agency = resolveAgency(agencyName);
+        String businessId = agency.businessId().value();
         log.info("Listing appointments for business: {}", businessId);
         ListResponse<BookingAppointmentDto> response = graphApiRequest.get(
-                appointmentsPath(businessId), ListResponse.class);
+                agency.tenantId(), appointmentsPath(businessId), ListResponse.class);
         return mapList(response.getValue(), BookingAppointmentDto.class);
     }
 
@@ -90,21 +91,24 @@ public class AppointmentService implements AppointmentManagement {
     public List<BookingAppointmentDto> getCalendarView(String agencyName,
                                                        String startDateTime,
                                                        String endDateTime) {
-        String businessId = resolveAgency(agencyName).businessId().value();
+        Agency agency = resolveAgency(agencyName);
+        String businessId = agency.businessId().value();
         log.info("Calendar view for business {}: {} → {}", businessId, startDateTime, endDateTime);
         String path = calendarViewPath(businessId)
                 + "?startDateTime=" + startDateTime
                 + "&endDateTime=" + endDateTime;
-        ListResponse<BookingAppointmentDto> response = graphApiRequest.get(path, ListResponse.class);
+        ListResponse<BookingAppointmentDto> response =
+                graphApiRequest.get(agency.tenantId(), path, ListResponse.class);
         return mapList(response.getValue(), BookingAppointmentDto.class);
     }
 
     @Override
     public BookingAppointmentDto getAppointment(String agencyName, String appointmentId) {
-        String businessId = resolveAgency(agencyName).businessId().value();
+        Agency agency = resolveAgency(agencyName);
+        String businessId = agency.businessId().value();
         log.info("Retrieving appointment {} for business {}", appointmentId, businessId);
-        return graphApiRequest.get(appointmentsPath(businessId) + "/" + appointmentId,
-                BookingAppointmentDto.class);
+        return graphApiRequest.get(agency.tenantId(),
+                appointmentsPath(businessId) + "/" + appointmentId, BookingAppointmentDto.class);
     }
 
     @Override
@@ -117,7 +121,7 @@ public class AppointmentService implements AppointmentManagement {
         if (request.getWorkerNames() == null || request.getWorkerNames().isEmpty()) {
             log.warn("Appointment without staff assignment in business {} – no slot reservation possible",
                     businessId);
-            return calendarPort.create(agency.businessId(), draftOf(request, List.of()));
+            return calendarPort.create(agency.tenantId(), agency.businessId(), draftOf(request, List.of()));
         }
 
         // 1. Map names onto Microsoft identifiers
@@ -131,7 +135,7 @@ public class AppointmentService implements AppointmentManagement {
         // 3. Graph
         try {
             BookingAppointmentDto appointment =
-                    calendarPort.create(agency.businessId(), draftOf(request, staffIds));
+                    calendarPort.create(agency.tenantId(), agency.businessId(), draftOf(request, staffIds));
             booking.confirm(AppointmentId.of(appointment.getId()));
             bookingRepository.save(booking);
 
@@ -201,7 +205,7 @@ public class AppointmentService implements AppointmentManagement {
         AppointmentId id = AppointmentId.of(appointmentId);
 
         if (request.getWorkerNames() == null || request.getWorkerNames().isEmpty()) {
-            return calendarPort.update(agency.businessId(), id, draftOf(request, List.of()));
+            return calendarPort.update(agency.tenantId(), agency.businessId(), id, draftOf(request, List.of()));
         }
 
         List<StaffMemberId> staffIds = resolveStaffIds(agency, request.getWorkerNames());
@@ -209,7 +213,7 @@ public class AppointmentService implements AppointmentManagement {
 
         try {
             BookingAppointmentDto appointment =
-                    calendarPort.update(agency.businessId(), id, draftOf(request, staffIds));
+                    calendarPort.update(agency.tenantId(), agency.businessId(), id, draftOf(request, staffIds));
             booking.confirm(id);
             bookingRepository.save(booking);
             publishEventsOf(booking);
@@ -228,7 +232,7 @@ public class AppointmentService implements AppointmentManagement {
         Agency agency = resolveAgency(agencyName);
         log.info("Cancelling appointment {} in business {}", appointmentId, agency.businessId());
 
-        calendarPort.cancel(agency.businessId(), AppointmentId.of(appointmentId));
+        calendarPort.cancel(agency.tenantId(), agency.businessId(), AppointmentId.of(appointmentId));
 
         bookingRepository.findBlockingByAppointmentId(AppointmentId.of(appointmentId))
                 .ifPresent(booking -> {

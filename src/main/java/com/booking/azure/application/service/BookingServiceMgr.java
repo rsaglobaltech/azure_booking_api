@@ -1,7 +1,12 @@
 package com.booking.azure.application.service;
 
 import com.booking.azure.application.port.in.ServiceManagement;
+import com.booking.azure.domain.model.Agency;
+import com.booking.azure.domain.model.vo.BusinessId;
+import com.booking.azure.domain.model.vo.TenantId;
+import com.booking.azure.domain.port.out.AgencyRepository;
 import com.booking.azure.application.port.out.GraphApiRequest;
+import org.springframework.beans.factory.annotation.Value;
 import com.booking.azure.dto.BookingServiceDto;
 import com.booking.azure.application.dto.ListResponse;
 import com.booking.azure.application.command.CreateServiceRequest;
@@ -29,6 +34,12 @@ public class BookingServiceMgr implements ServiceManagement {
 
     /** Ausgehender Port – wird durch den GraphApiClient implementiert */
     private final GraphApiRequest graphApiRequest;
+    private final AgencyRepository agencyRepository;
+
+    /** The platform's own Entra ID directory. */
+    @Value("${azure.graph.tenant-id}")
+    private String homeTenantId;
+
     private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
 
     private String dienstePfad(String businessId) {
@@ -44,7 +55,7 @@ public class BookingServiceMgr implements ServiceManagement {
     @Override
     public List<BookingServiceDto> listServices(String businessId) {
         log.info("Dienste werden aufgelistet für Betrieb: {}", businessId);
-        ListResponse<BookingServiceDto> response = graphApiRequest.get(
+        ListResponse<BookingServiceDto> response = graphApiRequest.get(tenantOf(businessId), 
                 dienstePfad(businessId), ListResponse.class);
         return listeMappen(response.getValue(), BookingServiceDto.class);
     }
@@ -59,7 +70,7 @@ public class BookingServiceMgr implements ServiceManagement {
     @Override
     public BookingServiceDto getService(String businessId, String serviceId) {
         log.info("Dienst {} wird abgerufen für Betrieb {}", serviceId, businessId);
-        return graphApiRequest.get(dienstePfad(businessId) + "/" + serviceId, BookingServiceDto.class);
+        return graphApiRequest.get(tenantOf(businessId), dienstePfad(businessId) + "/" + serviceId, BookingServiceDto.class);
     }
 
     /**
@@ -72,7 +83,7 @@ public class BookingServiceMgr implements ServiceManagement {
     @Override
     public BookingServiceDto createService(String businessId, CreateServiceRequest request) {
         log.info("Neuer Dienst '{}' wird erstellt in Betrieb {}", request.getDisplayName(), businessId);
-        return graphApiRequest.post(dienstePfad(businessId), request, BookingServiceDto.class);
+        return graphApiRequest.post(tenantOf(businessId), dienstePfad(businessId), request, BookingServiceDto.class);
     }
 
     /**
@@ -88,7 +99,7 @@ public class BookingServiceMgr implements ServiceManagement {
                                                  String serviceId,
                                                  CreateServiceRequest request) {
         log.info("Dienst {} wird aktualisiert in Betrieb {}", serviceId, businessId);
-        return graphApiRequest.patch(dienstePfad(businessId) + "/" + serviceId,
+        return graphApiRequest.patch(tenantOf(businessId), dienstePfad(businessId) + "/" + serviceId,
                 request, BookingServiceDto.class);
     }
 
@@ -101,7 +112,7 @@ public class BookingServiceMgr implements ServiceManagement {
     @Override
     public void deleteService(String businessId, String serviceId) {
         log.info("Dienst {} wird gelöscht in Betrieb {}", serviceId, businessId);
-        graphApiRequest.delete(dienstePfad(businessId) + "/" + serviceId);
+        graphApiRequest.delete(tenantOf(businessId), dienstePfad(businessId) + "/" + serviceId);
     }
 
     @SuppressWarnings("unchecked")
@@ -110,6 +121,25 @@ public class BookingServiceMgr implements ServiceManagement {
         return objectMapper.convertValue(rohliste,
                 objectMapper.getTypeFactory().constructCollectionType(List.class, zielklasse));
     }
+
+    // ─────────────────────────── tenant resolution ───────────────────────────
+
+    /**
+     * The directory a booking business lives in.
+     *
+     * Falls back to the platform's own tenant when the business is not
+     * registered locally — the administrative surface can also manage Graph
+     * objects that have no mapping row yet, for instance while one is being
+     * created.
+     */
+    private TenantId tenantOf(String businessId) {
+        return agencyRepository.findByBusinessId(BusinessId.of(businessId))
+                .map(Agency::tenantId)
+                .orElseGet(this::homeTenant);
+    }
+
+    /** The platform's own directory, for calls that name no agency. */
+    private TenantId homeTenant() {
+        return TenantId.of(homeTenantId);
+    }
 }
-
-

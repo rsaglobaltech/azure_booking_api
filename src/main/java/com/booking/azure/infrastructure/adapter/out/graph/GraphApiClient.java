@@ -4,6 +4,7 @@ import com.booking.azure.infrastructure.config.GraphApiProperties;
 import com.booking.azure.domain.exception.GraphResponseException;
 import com.booking.azure.domain.exception.GraphUnknownException;
 import com.booking.azure.application.port.out.GraphApiRequest;
+import com.booking.azure.domain.model.vo.TenantId;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
@@ -61,13 +62,13 @@ public class GraphApiClient implements GraphApiRequest {
      * @return Deserialisiertes Antwortobjekt
      */
     @Override
-    public <T> T get(String path, Class<T> responseType) {
+    public <T> T get(TenantId tenantId, String path, Class<T> responseType) {
         String url = properties.getBaseUrl() + path;
         log.debug("GET-Anfrage an Graph API: {}", url);
 
         return ausfuehren("GET", url, () -> graphWebClient.get()
                 .uri(url)
-                .header(HttpHeaders.AUTHORIZATION, "Bearer " + authService.getAccessToken())
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + authService.getAccessToken(tenantId))
                 .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
                 .retrieve()
                 .onStatus(HttpStatusCode::isError, this::mapError)
@@ -84,13 +85,13 @@ public class GraphApiClient implements GraphApiRequest {
      * @return Deserialisiertes Antwortobjekt
      */
     @Override
-    public <T> T post(String path, Object body, Class<T> responseType) {
+    public <T> T post(TenantId tenantId, String path, Object body, Class<T> responseType) {
         String url = properties.getBaseUrl() + path;
         log.debug("POST-Anfrage an Graph API: {}", url);
 
         return ausfuehren("POST", url, () -> graphWebClient.post()
                 .uri(url)
-                .header(HttpHeaders.AUTHORIZATION, "Bearer " + authService.getAccessToken())
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + authService.getAccessToken(tenantId))
                 .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
                 .bodyValue(body)
                 .retrieve()
@@ -108,13 +109,13 @@ public class GraphApiClient implements GraphApiRequest {
      * @return Deserialisiertes Antwortobjekt
      */
     @Override
-    public <T> T patch(String path, Object body, Class<T> responseType) {
+    public <T> T patch(TenantId tenantId, String path, Object body, Class<T> responseType) {
         String url = properties.getBaseUrl() + path;
         log.debug("PATCH-Anfrage an Graph API: {}", url);
 
         return ausfuehren("PATCH", url, () -> graphWebClient.patch()
                 .uri(url)
-                .header(HttpHeaders.AUTHORIZATION, "Bearer " + authService.getAccessToken())
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + authService.getAccessToken(tenantId))
                 .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
                 .bodyValue(body)
                 .retrieve()
@@ -129,13 +130,13 @@ public class GraphApiClient implements GraphApiRequest {
      * @param path Relativer API-Pfad der zu löschenden Ressource
      */
     @Override
-    public void delete(String path) {
+    public void delete(TenantId tenantId, String path) {
         String url = properties.getBaseUrl() + path;
         log.debug("DELETE-Anfrage an Graph API: {}", url);
 
         ausfuehren("DELETE", url, () -> graphWebClient.delete()
                 .uri(url)
-                .header(HttpHeaders.AUTHORIZATION, "Bearer " + authService.getAccessToken())
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + authService.getAccessToken(tenantId))
                 .retrieve()
                 .onStatus(HttpStatusCode::isError, this::mapError)
                 .bodyToMono(Void.class)

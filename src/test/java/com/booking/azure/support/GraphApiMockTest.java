@@ -21,6 +21,7 @@ import org.testng.annotations.BeforeSuite;
 import java.util.List;
 import java.util.UUID;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 @ActiveProfiles("test")
@@ -62,7 +63,7 @@ public abstract class GraphApiMockTest extends AbstractTestNGSpringContextTests 
     @BeforeMethod
     public void grundzustandHerstellen() {
         GRAPH_MOCK.resetAll();
-        when(authService.getAccessToken()).thenReturn("test-token");
+        when(authService.getAccessToken(any())).thenReturn("test-token");
 
         jdbcTemplate.execute("DELETE FROM slot_reservation");
         jdbcTemplate.execute("DELETE FROM staff_mapping");

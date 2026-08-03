@@ -1,30 +1,41 @@
 package com.booking.azure.infrastructure.adapter.out.graph;
 
+import com.booking.azure.domain.model.vo.TenantId;
+import com.booking.azure.infrastructure.config.GraphApiProperties;
 import com.microsoft.aad.msal4j.ClientCredentialFactory;
 import com.microsoft.aad.msal4j.ClientCredentialParameters;
 import com.microsoft.aad.msal4j.ConfidentialClientApplication;
 import com.microsoft.aad.msal4j.IAuthenticationResult;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Service;
 import org.springframework.context.annotation.Profile;
-import com.booking.azure.infrastructure.config.GraphApiProperties;
+import org.springframework.stereotype.Service;
 
-import java.net.MalformedURLException;
 import java.util.Collections;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Infrastruktur-Dienst für die Azure-AD-Authentifizierung.
+ * Acquires Microsoft Graph access tokens, one directory at a time.
  *
- * Onion-Architektur – Infrastrukturschicht:
- *   Holt OAuth-2.0-Zugriffstoken von Microsoft Azure AD
- *   mittels des Client-Credentials-Flows (Anwendung-zu-Anwendung).
- *   Vorausgesetzter Azure-AD-Berechtigungsbereich: Bookings.ReadWrite.All
+ * <h2>Multi-tenancy</h2>
  *
- * Token-Caching:
- *   Tokens werden gecached und automatisch erneuert, wenn sie innerhalb
- *   der nächsten 5 Minuten ablaufen.
+ * This platform holds a single application registration — one client id, one
+ * secret. Each customer organisation lives in its own Entra ID tenant and grants
+ * that registration admin consent when it signs up. A token is therefore
+ * acquired <b>per tenant</b>: same credentials, different authority
+ * ({@code https://login.microsoftonline.com/{tenantId}/}).
+ *
+ * Both the MSAL client and the token are cached <b>per tenant</b>. A single
+ * shared cache would hand one organisation a token issued for another's
+ * directory — a call that fails at best and reaches the wrong calendar at worst.
+ *
+ * <h2>Token lifetime</h2>
+ *
+ * A cached token is reused while it still has more than five minutes left. The
+ * margin exists so a token cannot expire between the check and the call it
+ * authenticates.
  */
 @Slf4j
 @Service
@@ -32,66 +43,86 @@ import java.util.concurrent.CompletableFuture;
 @Profile({"integration", "prod", "test"})
 public class GraphAuthService {
 
+    /** Reuse a token only while this much validity remains. */
+    private static final long EXPIRY_MARGIN_MILLIS = 300_000;
+
     private final GraphApiProperties properties;
 
-    private ConfidentialClientApplication clientApplication;
-    private String cachedToken;
-    private long tokenExpiresAt;
+    private final Map<TenantId, ConfidentialClientApplication> clients = new ConcurrentHashMap<>();
+    private final Map<TenantId, CachedToken> tokens = new ConcurrentHashMap<>();
+
+    private record CachedToken(String value, long expiresAt) {
+        boolean isUsable(long now) {
+            return now < expiresAt - EXPIRY_MARGIN_MILLIS;
+        }
+    }
 
     /**
-     * Gültiges Zugriffstoken für Microsoft Graph abrufen.
-     * Verwendet den Cache und erneuert den Token automatisch vor Ablauf.
+     * A valid access token for the given directory.
      *
-     * @return Bearer-Token-String
-     * @throws RuntimeException wenn der Token nicht abgerufen werden konnte
+     * @param tenantId the Entra ID tenant the target agency belongs to
+     * @throws RuntimeException if no token could be acquired
      */
-    public String getAccessToken() {
-        // Token wiederverwenden, wenn er noch mindestens 5 Minuten gültig ist
-        if (cachedToken != null && System.currentTimeMillis() < tokenExpiresAt - 300_000) {
-            return cachedToken;
+    public String getAccessToken(TenantId tenantId) {
+        if (tenantId == null) {
+            throw new IllegalArgumentException("tenantId is required to acquire a token");
+        }
+
+        CachedToken cached = tokens.get(tenantId);
+        if (cached != null && cached.isUsable(System.currentTimeMillis())) {
+            return cached.value();
         }
 
         try {
-            ConfidentialClientApplication app = getClientApplication();
-
-            ClientCredentialParameters parameter = ClientCredentialParameters.builder(
-                    Collections.singleton(properties.getScope()))
+            ClientCredentialParameters parameters = ClientCredentialParameters
+                    .builder(Collections.singleton(properties.getScope()))
                     .build();
 
-            CompletableFuture<IAuthenticationResult> future = app.acquireToken(parameter);
+            CompletableFuture<IAuthenticationResult> future =
+                    clientFor(tenantId).acquireToken(parameters);
             IAuthenticationResult result = future.get();
 
-            cachedToken = result.accessToken();
-            tokenExpiresAt = result.expiresOnDate().getTime();
+            tokens.put(tenantId, new CachedToken(
+                    result.accessToken(), result.expiresOnDate().getTime()));
 
-            log.debug("Zugriffstoken erfolgreich abgerufen. Gültig bis: {}", result.expiresOnDate());
-            return cachedToken;
+            log.debug("Access token acquired for tenant {}, valid until {}",
+                    tenantId, result.expiresOnDate());
+            return result.accessToken();
 
-        } catch (Exception e) {
-            log.error("Fehler beim Abrufen des Azure-AD-Zugriffstokens: {}", e.getMessage(), e);
-            throw new RuntimeException("Zugriffstoken von Azure AD konnte nicht abgerufen werden", e);
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException(
+                    "Interrupted while acquiring an access token for tenant " + tenantId, ex);
+        } catch (Exception ex) {
+            log.error("Could not acquire an Azure AD access token for tenant {}: {}",
+                    tenantId, ex.getMessage(), ex);
+            throw new IllegalStateException(
+                    "Could not acquire an access token for tenant " + tenantId, ex);
         }
     }
 
     /**
-     * ConfidentialClientApplication-Instanz erstellen oder aus Cache abrufen.
-     * Wird einmalig pro Anwendungslebenszyklus instanziiert.
+     * The MSAL client for one directory, built once and reused.
      *
-     * @return MSAL4J-Client-Instanz
-     * @throws MalformedURLException bei ungültiger Authority-URL
+     * Building it is expensive and it is thread-safe once built, hence the
+     * cache. The authority carries the tenant — that is what makes the token
+     * apply to that organisation's calendars and no one else's.
      */
-    private ConfidentialClientApplication getClientApplication() throws MalformedURLException {
-        if (clientApplication == null) {
-            String autoritaet = "https://login.microsoftonline.com/" + properties.getTenantId() + "/";
-            clientApplication = ConfidentialClientApplication.builder(
-                    properties.getClientId(),
-                    ClientCredentialFactory.createFromSecret(properties.getClientSecret()))
-                    .authority(autoritaet)
-                    .build();
-            log.info("Azure-AD-Client erstellt für Mandant: {}", properties.getTenantId());
-        }
-        return clientApplication;
+    private ConfidentialClientApplication clientFor(TenantId tenantId) {
+        return clients.computeIfAbsent(tenantId, tenant -> {
+            try {
+                String authority = "https://login.microsoftonline.com/" + tenant.value() + "/";
+                ConfidentialClientApplication client = ConfidentialClientApplication.builder(
+                                properties.getClientId(),
+                                ClientCredentialFactory.createFromSecret(properties.getClientSecret()))
+                        .authority(authority)
+                        .build();
+                log.info("Azure AD client created for tenant {}", tenant);
+                return client;
+            } catch (Exception ex) {
+                throw new IllegalStateException(
+                        "Could not create an Azure AD client for tenant " + tenant, ex);
+            }
+        });
     }
 }
-
-
