@@ -14,7 +14,7 @@ import java.util.List;
  * A booking agency: aggregate root over its staff members.
  *
  * <h2>What this aggregate is for</h2>
- *
+ * <p>
  * It owns the translation between the names callers use and the identifiers
  * Microsoft Bookings expects. That translation used to be a loop inside the
  * appointment use case, which meant the use case had to know how staff are
@@ -22,20 +22,14 @@ import java.util.List;
  * Both concerns now live here, where the data they operate on lives.
  *
  * <h2>Consistency boundary</h2>
- *
+ * <p>
  * The staff list is loaded with the root and is never modified from outside.
  * Slot reservations are deliberately <b>not</b> part of this aggregate: they
  * change on every booking, while an agency's staff changes rarely, and tying
  * the two together would force the whole staff list to be loaded and locked for
  * every booking.
  */
-public class Agency {
-
-    private final AgencyId id;
-    private final AgencyName name;
-    private final String msTenantId;
-    private final BusinessId businessId;
-    private final List<StaffMember> staff;
+public record Agency(AgencyId id, AgencyName name, String msTenantId, BusinessId businessId, List<StaffMember> staff) {
 
     public Agency(AgencyId id,
                   AgencyName name,
@@ -58,25 +52,12 @@ public class Agency {
         this.staff = staff == null ? List.of() : List.copyOf(staff);
     }
 
-    public AgencyId id() {
-        return id;
-    }
-
-    public AgencyName name() {
-        return name;
-    }
-
-    public String msTenantId() {
-        return msTenantId;
-    }
-
-    /** The identifier this agency carries inside Microsoft Bookings. */
+    /**
+     * The identifier this agency carries inside Microsoft Bookings.
+     */
+    @Override
     public BusinessId businessId() {
         return businessId;
-    }
-
-    public List<StaffMember> staff() {
-        return staff;
     }
 
     /**
@@ -94,7 +75,7 @@ public class Agency {
 
     /**
      * Translates several staff names at once, preserving their order.
-     *
+     * <p>
      * Fails on the first unknown name rather than silently returning a shorter
      * list: a booking assigned to fewer people than requested would reserve
      * fewer slots than it should.
