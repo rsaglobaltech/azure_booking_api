@@ -4,6 +4,11 @@ import com.booking.azure.application.dto.ListResponse;
 import com.booking.azure.application.command.CreateAppointmentRequest;
 import com.booking.azure.domain.exception.AgencyNotFoundException;
 import com.booking.azure.domain.exception.GraphResponseException;
+import com.booking.azure.domain.model.AppointmentDraft;
+import com.booking.azure.domain.model.vo.AppointmentCustomer;
+import com.booking.azure.domain.model.vo.ServiceLocation;
+import com.booking.azure.dto.LocationDto;
+import com.booking.azure.dto.PhysicalAddressDto;
 import com.booking.azure.domain.model.Agency;
 import com.booking.azure.domain.model.Booking;
 import com.booking.azure.domain.model.SlotRequest;
@@ -17,6 +22,7 @@ import com.booking.azure.domain.model.vo.StaffName;
 import com.booking.azure.domain.model.vo.TimeWindow;
 import com.booking.azure.application.port.in.AppointmentManagement;
 import com.booking.azure.domain.port.out.AgencyRepository;
+import com.booking.azure.application.port.out.AppointmentCalendarPort;
 import com.booking.azure.application.port.out.GraphApiRequest;
 import com.booking.azure.domain.port.out.BookingRepository;
 import com.booking.azure.domain.port.out.DomainEventPublisher;
@@ -25,6 +31,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.List;
 
 @Slf4j
@@ -34,6 +42,7 @@ public class AppointmentService implements AppointmentManagement {
 
     private final GraphApiRequest graphApiRequest;
     private final BookingRepository bookingRepository;
+    private final AppointmentCalendarPort calendarPort;
     private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
 
     private final AgencyRepository agencyRepository;
@@ -108,12 +117,11 @@ public class AppointmentService implements AppointmentManagement {
         if (request.getWorkerNames() == null || request.getWorkerNames().isEmpty()) {
             log.warn("Appointment without staff assignment in business {} – no slot reservation possible",
                     businessId);
-            return graphApiRequest.post(appointmentsPath(businessId), request, BookingAppointmentDto.class);
+            return calendarPort.create(agency.businessId(), draftOf(request, List.of()));
         }
 
         // 1. Map names onto Microsoft identifiers
         List<StaffMemberId> staffIds = resolveStaffIds(agency, request.getWorkerNames());
-        request.setStaffMemberIds(staffIds.stream().map(StaffMemberId::value).toList());
 
         // 2. Take the local hold (slot reservation)
         Booking booking = bookingRepository.reserve(slotRequest(businessId, request, staffIds))
@@ -122,8 +130,8 @@ public class AppointmentService implements AppointmentManagement {
 
         // 3. Graph
         try {
-            BookingAppointmentDto appointment = graphApiRequest.post(
-                    appointmentsPath(businessId), request, BookingAppointmentDto.class);
+            BookingAppointmentDto appointment =
+                    calendarPort.create(agency.businessId(), draftOf(request, staffIds));
             booking.confirm(AppointmentId.of(appointment.getId()));
             bookingRepository.save(booking);
 
@@ -190,20 +198,18 @@ public class AppointmentService implements AppointmentManagement {
 
         log.info("Updating appointment {} in business {}", appointmentId, businessId);
 
+        AppointmentId id = AppointmentId.of(appointmentId);
+
         if (request.getWorkerNames() == null || request.getWorkerNames().isEmpty()) {
-            return graphApiRequest.patch(appointmentsPath(businessId) + "/" + appointmentId,
-                    request, BookingAppointmentDto.class);
+            return calendarPort.update(agency.businessId(), id, draftOf(request, List.of()));
         }
 
         List<StaffMemberId> staffIds = resolveStaffIds(agency, request.getWorkerNames());
-        request.setStaffMemberIds(staffIds.stream().map(StaffMemberId::value).toList());
-
-        AppointmentId id = AppointmentId.of(appointmentId);
         Booking booking = bookingRepository.reschedule(id, slotRequest(businessId, request, staffIds));
 
         try {
-            BookingAppointmentDto appointment = graphApiRequest.patch(
-                    appointmentsPath(businessId) + "/" + appointmentId, request, BookingAppointmentDto.class);
+            BookingAppointmentDto appointment =
+                    calendarPort.update(agency.businessId(), id, draftOf(request, staffIds));
             booking.confirm(id);
             bookingRepository.save(booking);
             publishEventsOf(booking);
@@ -219,10 +225,10 @@ public class AppointmentService implements AppointmentManagement {
 
     @Override
     public void cancelAppointment(String agencyName, String appointmentId) {
-        String businessId = resolveAgency(agencyName).businessId().value();
-        log.info("Cancelling appointment {} in business {}", appointmentId, businessId);
+        Agency agency = resolveAgency(agencyName);
+        log.info("Cancelling appointment {} in business {}", appointmentId, agency.businessId());
 
-        graphApiRequest.delete(appointmentsPath(businessId) + "/" + appointmentId);
+        calendarPort.cancel(agency.businessId(), AppointmentId.of(appointmentId));
 
         bookingRepository.findBlockingByAppointmentId(AppointmentId.of(appointmentId))
                 .ifPresent(booking -> {
@@ -230,6 +236,81 @@ public class AppointmentService implements AppointmentManagement {
                     bookingRepository.save(booking);
                     publishEventsOf(booking);
                 });
+    }
+
+    /**
+     * Turns the incoming request into the domain's description of the
+     * appointment to write.
+     *
+     * This is where the HTTP shape stops. Previously the request object itself
+     * travelled all the way to Microsoft Graph, so its field names were
+     * simultaneously this API's contract and Microsoft's.
+     */
+    private AppointmentDraft draftOf(CreateAppointmentRequest request, List<StaffMemberId> staffIds) {
+        return new AppointmentDraft(
+                ServiceId.of(request.getServiceId()),
+                windowOf(request),
+                zoneOf(request),
+                staffIds,
+                appointmentCustomerOf(request),
+                request.getServiceNotes(),
+                request.getAdditionalInformation(),
+                locationOf(request),
+                request.getIsLocationOnline(),
+                request.getOptOutOfCustomerEmail());
+    }
+
+    private TimeWindow windowOf(CreateAppointmentRequest request) {
+        return TimeWindow.of(
+                TimeZoneConverter.toInstant(request.getStartDateTime()),
+                TimeZoneConverter.toInstant(request.getEndDateTime()));
+    }
+
+    /**
+     * The zone the caller expressed the appointment in.
+     *
+     * Kept so the outgoing payload can reproduce the wall-clock time that was
+     * booked. Falls back to UTC when the caller sent an absolute timestamp and
+     * named no zone — then the instant is unambiguous and any rendering is
+     * faithful.
+     */
+    private ZoneId zoneOf(CreateAppointmentRequest request) {
+        String zone = request.getStartDateTime() == null ? null : request.getStartDateTime().getTimeZone();
+        if (zone == null || zone.isBlank()) {
+            return ZoneOffset.UTC;
+        }
+        try {
+            return ZoneId.of(zone.trim());
+        } catch (RuntimeException ex) {
+            // TimeZoneConverter already rejects unusable zones when it needs
+            // them. Reaching here means the timestamp carried its own offset, so
+            // UTC loses nothing.
+            return ZoneOffset.UTC;
+        }
+    }
+
+    private AppointmentCustomer appointmentCustomerOf(CreateAppointmentRequest request) {
+        CustomerContact contact = customerOf(request);
+        if (contact == null) {
+            return null;
+        }
+        var first = request.getCustomers().get(0);
+        return new AppointmentCustomer(contact, first.getCustomerId(), first.getPhone(), first.getNotes());
+    }
+
+    private ServiceLocation locationOf(CreateAppointmentRequest request) {
+        LocationDto location = request.getServiceLocation();
+        if (location == null) {
+            return null;
+        }
+        PhysicalAddressDto address = location.getAddress();
+        return new ServiceLocation(
+                location.getDisplayName(),
+                address == null ? null : address.getStreet(),
+                address == null ? null : address.getCity(),
+                address == null ? null : address.getState(),
+                address == null ? null : address.getPostalCode(),
+                address == null ? null : address.getCountryOrRegion());
     }
 
     private SlotRequest slotRequest(String businessId, CreateAppointmentRequest request,
