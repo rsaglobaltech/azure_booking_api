@@ -35,8 +35,8 @@ public class GraphAuthService {
     private final GraphApiProperties properties;
 
     private ConfidentialClientApplication clientApplication;
-    private String gecachtesToken;
-    private long tokenAblaufzeit;
+    private String cachedToken;
+    private long tokenExpiresAt;
 
     /**
      * Gültiges Zugriffstoken für Microsoft Graph abrufen.
@@ -47,8 +47,8 @@ public class GraphAuthService {
      */
     public String getAccessToken() {
         // Token wiederverwenden, wenn er noch mindestens 5 Minuten gültig ist
-        if (gecachtesToken != null && System.currentTimeMillis() < tokenAblaufzeit - 300_000) {
-            return gecachtesToken;
+        if (cachedToken != null && System.currentTimeMillis() < tokenExpiresAt - 300_000) {
+            return cachedToken;
         }
 
         try {
@@ -59,13 +59,13 @@ public class GraphAuthService {
                     .build();
 
             CompletableFuture<IAuthenticationResult> future = app.acquireToken(parameter);
-            IAuthenticationResult ergebnis = future.get();
+            IAuthenticationResult result = future.get();
 
-            gecachtesToken = ergebnis.accessToken();
-            tokenAblaufzeit = ergebnis.expiresOnDate().getTime();
+            cachedToken = result.accessToken();
+            tokenExpiresAt = result.expiresOnDate().getTime();
 
-            log.debug("Zugriffstoken erfolgreich abgerufen. Gültig bis: {}", ergebnis.expiresOnDate());
-            return gecachtesToken;
+            log.debug("Zugriffstoken erfolgreich abgerufen. Gültig bis: {}", result.expiresOnDate());
+            return cachedToken;
 
         } catch (Exception e) {
             log.error("Fehler beim Abrufen des Azure-AD-Zugriffstokens: {}", e.getMessage(), e);
