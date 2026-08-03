@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -28,4 +29,14 @@ public interface SpringDataAgencyRepository extends JpaRepository<AgencyJpaEntit
     @Query("select a from AgencyJpaEntity a left join fetch a.staffMappings "
             + "where a.msBusinessId = :msBusinessId")
     Optional<AgencyJpaEntity> findByMsBusinessIdWithStaff(@Param("msBusinessId") String msBusinessId);
+
+    /**
+     * Every agency with its staff.
+     *
+     * {@code distinct} is required, not cosmetic: joining a collection returns
+     * one row per staff member, which would otherwise yield the same agency
+     * repeatedly.
+     */
+    @Query("select distinct a from AgencyJpaEntity a left join fetch a.staffMappings")
+    List<AgencyJpaEntity> findAllWithStaff();
 }

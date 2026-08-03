@@ -40,6 +40,11 @@ public class AgencyPersistenceAdapter implements AgencyRepository {
         return repository.findByMsBusinessIdWithStaff(businessId.value()).map(this::toDomain);
     }
 
+    @Override
+    public List<Agency> findAll() {
+        return repository.findAllWithStaff().stream().map(this::toDomain).toList();
+    }
+
     private Agency toDomain(AgencyJpaEntity entity) {
         List<StaffMember> staff = entity.getStaffMappings() == null
                 ? List.of()

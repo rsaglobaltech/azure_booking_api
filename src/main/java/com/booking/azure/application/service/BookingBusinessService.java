@@ -56,19 +56,60 @@ public class BookingBusinessService implements AgencyManagement {
     // ──────────────────────────── Use-Case-Implementierungen ────────────────────
 
     /**
-     * Alle Buchungsbetriebe (Agenturen) des Mandanten auflisten.
-     * Die Buchungs-URL jedes Betriebs wird dynamisch berechnet.
+     * Lists every agency this platform serves.
      *
-     * @return Liste aller Buchungsbetriebe inkl. Buchungs-URL
+     * <h2>Why the local database is the source of the list</h2>
+     *
+     * Agencies live in <b>different</b> Entra ID directories. No single call to
+     * Microsoft can enumerate them: a token is scoped to one tenant, so asking
+     * Graph for "all booking businesses" returns the contents of whichever
+     * directory that token belongs to — the platform's own, which holds none of
+     * the customers' agencies. The registration table is the only place that
+     * knows the full set.
+     *
+     * <h2>Why Graph is still called, once per agency</h2>
+     *
+     * The registration row holds identifiers, not business details: address,
+     * opening hours, scheduling policy and publication state live in Bookings.
+     * Each agency is therefore fetched from its own directory, with its own
+     * token, so the response keeps the shape callers already parse.
+     *
+     * <p>An agency whose directory cannot be reached is <b>still listed</b>,
+     * with the identifiers and booking URL known locally. Dropping it would
+     * make an unreachable agency indistinguishable from a deregistered one, and
+     * one unavailable directory would silently shrink everyone else's list.
      */
     @Override
     public List<BookingBusinessDto> listBusinesses() {
-        log.info("Alle Buchungsbetriebe des Mandanten werden aufgelistet");
-        ListResponse<BookingBusinessDto> response = graphApiRequest.get(homeTenant(), API_PFAD,
-                ListResponse.class);
-        List<BookingBusinessDto> betriebe = listeMappen(response.getValue(), BookingBusinessDto.class);
-        betriebe.forEach(this::buchungsUrlSetzen);
-        return betriebe;
+        List<Agency> agencies = agencyRepository.findAll();
+        log.info("Listing {} registered agencies", agencies.size());
+
+        return agencies.stream().map(this::describe).toList();
+    }
+
+    /** Fetches one agency's details from its own directory, or falls back to what is known locally. */
+    private BookingBusinessDto describe(Agency agency) {
+        try {
+            BookingBusinessDto business = graphApiRequest.get(
+                    agency.tenantId(),
+                    API_PFAD + "/" + agency.businessId().value(),
+                    BookingBusinessDto.class);
+            buchungsUrlSetzen(business);
+            return business;
+
+        } catch (RuntimeException ex) {
+            log.warn("Agency {} could not be read from tenant {}, listing it with local data only: {}",
+                    agency.businessId(), agency.tenantId(), ex.getMessage());
+            return localOnly(agency);
+        }
+    }
+
+    private BookingBusinessDto localOnly(Agency agency) {
+        BookingBusinessDto business = new BookingBusinessDto();
+        business.setId(agency.businessId().value());
+        business.setDisplayName(agency.name().value());
+        buchungsUrlSetzen(business);
+        return business;
     }
 
     /**

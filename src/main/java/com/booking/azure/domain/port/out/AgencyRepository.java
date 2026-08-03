@@ -4,6 +4,7 @@ import com.booking.azure.domain.model.Agency;
 import com.booking.azure.domain.model.vo.AgencyName;
 import com.booking.azure.domain.model.vo.BusinessId;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -31,4 +32,13 @@ public interface AgencyRepository {
      * reference the business id, not the local display name.
      */
     Optional<Agency> findByBusinessId(BusinessId businessId);
+
+    /**
+     * Every agency this platform knows about.
+     *
+     * This is the authoritative answer to "which agencies exist", and the only
+     * one available across tenants: agencies live in different Entra ID
+     * directories, so no single call to Microsoft can enumerate them.
+     */
+    List<Agency> findAll();
 }
