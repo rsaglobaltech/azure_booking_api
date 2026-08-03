@@ -45,7 +45,7 @@ public class SlotReservationTest extends GraphApiMockTest {
 
     @Test(description = "10:00 Europe/Berlin und 08:00 UTC sind derselbe Slot")
     public void zeitzonenWerdenNormalisiert() {
-        graphNimmtTermineAn();
+        graphAcceptsAppointments();
 
         ResponseEntity<String> berlin = buchen(request(
                 zeit("2026-08-03T10:00:00", "Europe/Berlin"),
@@ -68,7 +68,7 @@ public class SlotReservationTest extends GraphApiMockTest {
 
     @Test(description = "Unbekannte Zeitzone wird mit HTTP 400 abgewiesen, nicht mit 502")
     public void unbekannteZeitzone() {
-        graphNimmtTermineAn();
+        graphAcceptsAppointments();
 
         ResponseEntity<String> response = buchen(request(
                 zeit("2026-08-03T10:00:00", "W. Europe Standard Time"),
@@ -84,7 +84,7 @@ public class SlotReservationTest extends GraphApiMockTest {
 
     @Test(description = "Direkt anschließende Termine (10:00–11:00, 11:00–12:00) kollidieren nicht")
     public void anschliessendeTermineSindErlaubt() {
-        graphNimmtTermineAn();
+        graphAcceptsAppointments();
 
         ResponseEntity<String> erster = buchen(request(
                 zeit("2026-08-03T10:00:00", "UTC"), zeit("2026-08-03T11:00:00", "UTC"), MITARBEITER_A));
@@ -102,7 +102,7 @@ public class SlotReservationTest extends GraphApiMockTest {
 
     @Test(description = "Gleicher Zeitraum, anderer Mitarbeiter – kein Konflikt")
     public void andererMitarbeiterKeinKonflikt() {
-        graphNimmtTermineAn();
+        graphAcceptsAppointments();
 
         ResponseEntity<String> a = buchen(request(
                 zeit("2026-08-03T10:00:00", "UTC"), zeit("2026-08-03T11:00:00", "UTC"), MITARBEITER_A));
@@ -115,7 +115,7 @@ public class SlotReservationTest extends GraphApiMockTest {
 
     @Test(description = "Termin mit zwei Mitarbeitern scheitert, wenn einer davon belegt ist")
     public void einBelegterMitarbeiterBlockiertDieGanzeAnfrage() {
-        graphNimmtTermineAn();
+        graphAcceptsAppointments();
 
         buchen(request(zeit("2026-08-03T10:00:00", "UTC"),
                 zeit("2026-08-03T11:00:00", "UTC"), MITARBEITER_B));
@@ -147,7 +147,7 @@ public class SlotReservationTest extends GraphApiMockTest {
                 zeit("2026-08-03T10:00:00", "UTC"), zeit("2026-08-03T11:00:00", "UTC"), MITARBEITER_A));
         assertThat(gescheitert.getStatusCode()).isEqualTo(HttpStatus.BAD_GATEWAY);
 
-        graphNimmtTermineAn();
+        graphAcceptsAppointments();
         ResponseEntity<String> erneut = buchen(request(
                 zeit("2026-08-03T10:00:00", "UTC"), zeit("2026-08-03T11:00:00", "UTC"), MITARBEITER_A));
 
@@ -167,7 +167,7 @@ public class SlotReservationTest extends GraphApiMockTest {
                         .withFixedDelay(5000)
                         .withStatus(201)
                         .withHeader("Content-Type", "application/json")
-                        .withBody(terminJson())));
+                        .withBody(appointmentJson())));
 
         ResponseEntity<String> erste = buchen(request(
                 zeit("2026-08-03T10:00:00", "UTC"), zeit("2026-08-03T11:00:00", "UTC"), MITARBEITER_A));
@@ -182,7 +182,7 @@ public class SlotReservationTest extends GraphApiMockTest {
 
         // Der Client wiederholt, wie es HTTP-Clients nach einer Zeitüberschreitung tun.
         // Graph antwortet jetzt sofort.
-        graphNimmtTermineAn();
+        graphAcceptsAppointments();
         ResponseEntity<String> wiederholung = buchen(request(
                 zeit("2026-08-03T10:00:00", "UTC"), zeit("2026-08-03T11:00:00", "UTC"), MITARBEITER_A));
 
@@ -202,7 +202,7 @@ public class SlotReservationTest extends GraphApiMockTest {
 
     @Test(description = "Stornierung gibt den Slot wieder frei")
     public void stornierungGibtSlotFrei() {
-        graphNimmtTermineAn();
+        graphAcceptsAppointments();
         GRAPH_MOCK.stubFor(delete(urlPathMatching(GRAPH_TERMIN_PFAD + "/.*"))
                 .willReturn(aResponse().withStatus(204)));
 
@@ -221,12 +221,12 @@ public class SlotReservationTest extends GraphApiMockTest {
 
     @Test(description = "Umbuchung gibt den alten Slot frei und belegt den neuen")
     public void umbuchungTauschtDieSlots() {
-        graphNimmtTermineAn();
+        graphAcceptsAppointments();
         GRAPH_MOCK.stubFor(patch(urlPathMatching(GRAPH_TERMIN_PFAD + "/.*"))
                 .willReturn(aResponse()
                         .withStatus(200)
                         .withHeader("Content-Type", "application/json")
-                        .withBody(terminJson())));
+                        .withBody(appointmentJson())));
 
         buchen(request(zeit("2026-08-03T10:00:00", "UTC"),
                 zeit("2026-08-03T11:00:00", "UTC"), MITARBEITER_A));
@@ -250,7 +250,7 @@ public class SlotReservationTest extends GraphApiMockTest {
 
     @Test(description = "Abgewiesene Buchung erreicht Microsoft Graph nicht")
     public void abgewieseneBuchungErreichtGraphNicht() {
-        graphNimmtTermineAn();
+        graphAcceptsAppointments();
 
         buchen(request(zeit("2026-08-03T10:00:00", "UTC"),
                 zeit("2026-08-03T11:00:00", "UTC"), MITARBEITER_A));
@@ -264,15 +264,15 @@ public class SlotReservationTest extends GraphApiMockTest {
 
     // ─────────────────────────── Hilfsmethoden ───────────────────────────
 
-    private void graphNimmtTermineAn() {
+    private void graphAcceptsAppointments() {
         GRAPH_MOCK.stubFor(post(urlPathEqualTo(GRAPH_TERMIN_PFAD))
                 .willReturn(aResponse()
                         .withStatus(201)
                         .withHeader("Content-Type", "application/json")
-                        .withBody(terminJson())));
+                        .withBody(appointmentJson())));
     }
 
-    private static String terminJson() {
+    private static String appointmentJson() {
         return """
                 {
                   "id": "%s",

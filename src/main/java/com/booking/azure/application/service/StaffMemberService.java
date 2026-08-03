@@ -34,7 +34,7 @@ public class StaffMemberService implements StaffManagement {
     private final GraphApiRequest graphApiRequest;
     private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
 
-    private String mitarbeiterPfad(String businessId) {
+    private String staffPath(String businessId) {
         return "/solutions/bookingBusinesses/" + businessId + "/staffMembers";
     }
 
@@ -48,7 +48,7 @@ public class StaffMemberService implements StaffManagement {
     public List<BookingStaffMemberDto> listStaffMembers(String businessId) {
         log.info("Mitarbeiter werden aufgelistet für Betrieb: {}", businessId);
         ListResponse<BookingStaffMemberDto> response = graphApiRequest.get(
-                mitarbeiterPfad(businessId), ListResponse.class);
+                staffPath(businessId), ListResponse.class);
         return listeMappen(response.getValue(), BookingStaffMemberDto.class);
     }
 
@@ -56,13 +56,13 @@ public class StaffMemberService implements StaffManagement {
      * Einen bestimmten Mitarbeiter abrufen.
      *
      * @param businessId     ID der Agentur
-     * @param mitarbeiterId ID (GUID) des Mitarbeiters
+     * @param staffMemberId ID (GUID) des Mitarbeiters
      * @return Mitarbeiterdaten
      */
     @Override
-    public BookingStaffMemberDto getStaffMember(String businessId, String mitarbeiterId) {
-        log.info("Mitarbeiter {} wird abgerufen für Betrieb {}", mitarbeiterId, businessId);
-        return graphApiRequest.get(mitarbeiterPfad(businessId) + "/" + mitarbeiterId,
+    public BookingStaffMemberDto getStaffMember(String businessId, String staffMemberId) {
+        log.info("Mitarbeiter {} wird abgerufen für Betrieb {}", staffMemberId, businessId);
+        return graphApiRequest.get(staffPath(businessId) + "/" + staffMemberId,
                 BookingStaffMemberDto.class);
     }
 
@@ -77,23 +77,23 @@ public class StaffMemberService implements StaffManagement {
     public BookingStaffMemberDto createStaffMember(String businessId,
                                                       CreateStaffMemberRequest request) {
         log.info("Neuer Mitarbeiter '{}' wird angelegt in Betrieb {}", request.getDisplayName(), businessId);
-        return graphApiRequest.post(mitarbeiterPfad(businessId), request, BookingStaffMemberDto.class);
+        return graphApiRequest.post(staffPath(businessId), request, BookingStaffMemberDto.class);
     }
 
     /**
      * Bestehenden Mitarbeiter aktualisieren.
      *
      * @param businessId     ID der Agentur
-     * @param mitarbeiterId ID des Mitarbeiters
+     * @param staffMemberId ID des Mitarbeiters
      * @param request       Neue Mitarbeiterdaten
      * @return Der aktualisierte Mitarbeiter
      */
     @Override
     public BookingStaffMemberDto updateStaffMember(String businessId,
-                                                          String mitarbeiterId,
+                                                          String staffMemberId,
                                                           CreateStaffMemberRequest request) {
-        log.info("Mitarbeiter {} wird aktualisiert in Betrieb {}", mitarbeiterId, businessId);
-        return graphApiRequest.patch(mitarbeiterPfad(businessId) + "/" + mitarbeiterId,
+        log.info("Mitarbeiter {} wird aktualisiert in Betrieb {}", staffMemberId, businessId);
+        return graphApiRequest.patch(staffPath(businessId) + "/" + staffMemberId,
                 request, BookingStaffMemberDto.class);
     }
 
@@ -101,12 +101,12 @@ public class StaffMemberService implements StaffManagement {
      * Mitarbeiter aus einem Buchungsbetrieb entfernen.
      *
      * @param businessId     ID der Agentur
-     * @param mitarbeiterId ID des zu entfernenden Mitarbeiters
+     * @param staffMemberId ID des zu entfernenden Mitarbeiters
      */
     @Override
-    public void deleteStaffMember(String businessId, String mitarbeiterId) {
-        log.info("Mitarbeiter {} wird entfernt aus Betrieb {}", mitarbeiterId, businessId);
-        graphApiRequest.delete(mitarbeiterPfad(businessId) + "/" + mitarbeiterId);
+    public void deleteStaffMember(String businessId, String staffMemberId) {
+        log.info("Mitarbeiter {} wird entfernt aus Betrieb {}", staffMemberId, businessId);
+        graphApiRequest.delete(staffPath(businessId) + "/" + staffMemberId);
     }
 
     /**

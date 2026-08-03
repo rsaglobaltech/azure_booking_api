@@ -36,10 +36,10 @@ public interface StaffManagement {
      * Einen bestimmten Mitarbeiter abrufen.
      *
      * @param businessId    ID des Buchungsbetriebs
-     * @param mitarbeiterId ID (GUID) des Mitarbeiters
+     * @param staffMemberId ID (GUID) des Mitarbeiters
      * @return Mitarbeiterdaten
      */
-    BookingStaffMemberDto getStaffMember(String businessId, String mitarbeiterId);
+    BookingStaffMemberDto getStaffMember(String businessId, String staffMemberId);
 
     /**
      * Einen neuen Mitarbeiter in einem Buchungsbetrieb anlegen.
@@ -54,21 +54,21 @@ public interface StaffManagement {
      * Einen bestehenden Mitarbeiter aktualisieren.
      *
      * @param businessId     ID des Buchungsbetriebs
-     * @param mitarbeiterId ID des zu aktualisierenden Mitarbeiters
+     * @param staffMemberId ID des zu aktualisierenden Mitarbeiters
      * @param request       Anfrage mit den neuen Mitarbeiterdaten
      * @return Der aktualisierte Mitarbeiter
      */
     BookingStaffMemberDto updateStaffMember(String businessId,
-                                                   String mitarbeiterId,
+                                                   String staffMemberId,
                                                    CreateStaffMemberRequest request);
 
     /**
      * Einen Mitarbeiter aus einem Buchungsbetrieb entfernen.
      *
      * @param businessId     ID des Buchungsbetriebs
-     * @param mitarbeiterId ID des zu entfernenden Mitarbeiters
+     * @param staffMemberId ID des zu entfernenden Mitarbeiters
      */
-    void deleteStaffMember(String businessId, String mitarbeiterId);
+    void deleteStaffMember(String businessId, String staffMemberId);
 
     /**
      * Verfügbarkeit (frei / belegt) eines oder mehrerer Mitarbeiter

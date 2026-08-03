@@ -66,7 +66,7 @@ public class SlotRecoveryTest extends GraphApiMockTest {
                         .withFixedDelay(5000)
                         .withStatus(201)
                         .withHeader("Content-Type", "application/json")
-                        .withBody(terminJson())));
+                        .withBody(appointmentJson())));
 
         ResponseEntity<String> response = buchen();
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.GATEWAY_TIMEOUT);
@@ -110,7 +110,7 @@ public class SlotRecoveryTest extends GraphApiMockTest {
                 .isEqualTo(TERMIN_ID);
 
         // Und der Slot muss weiterhin belegt sein.
-        graphNimmtTermineAn();
+        graphAcceptsAppointments();
         assertThat(buchen().getStatusCode())
                 .as("""
                         Genau hier scheitert ein blind löschender Job: er gäbe den Slot frei, \
@@ -128,7 +128,7 @@ public class SlotRecoveryTest extends GraphApiMockTest {
         assertThat(anzahlMitZustand("RELEASED")).isEqualTo(1);
         assertThat(anzahlMitZustand("PENDING")).isZero();
 
-        graphNimmtTermineAn();
+        graphAcceptsAppointments();
         assertThat(buchen().getStatusCode())
                 .as("Der Slot muss wieder buchbar sein")
                 .isEqualTo(HttpStatus.CREATED);
@@ -183,12 +183,12 @@ public class SlotRecoveryTest extends GraphApiMockTest {
                         .withBody(json)));
     }
 
-    private void graphNimmtTermineAn() {
+    private void graphAcceptsAppointments() {
         GRAPH_MOCK.stubFor(post(urlPathEqualTo(GRAPH_TERMIN_PFAD))
                 .willReturn(aResponse()
                         .withStatus(201)
                         .withHeader("Content-Type", "application/json")
-                        .withBody(terminJson())));
+                        .withBody(appointmentJson())));
     }
 
     private Integer anzahlMitZustand(String state) {
@@ -196,7 +196,7 @@ public class SlotRecoveryTest extends GraphApiMockTest {
                 "SELECT count(*) FROM slot_reservation WHERE state = ?", Integer.class, state);
     }
 
-    private static String terminJson() {
+    private static String appointmentJson() {
         return """
                 {
                   "id": "%s",

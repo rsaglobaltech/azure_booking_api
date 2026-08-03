@@ -87,7 +87,7 @@ public class AppointmentConcurrencyTest extends GraphApiMockTest {
     public void gleichzeitigeAnfragenAufDenselbenSlot() throws InterruptedException {
         List<ResponseEntity<String>> antworten = parallelBuchen(
                 GLEICHZEITIGE_ANFRAGEN,
-                nummer -> terminAnfrage("10:00:00", "11:00:00", "kunde" + nummer + "@example.de"));
+                nummer -> appointmentRequest("10:00:00", "11:00:00", "kunde" + nummer + "@example.de"));
 
         long angelegt = antworten.stream()
                 .filter(a -> a.getStatusCode() == HttpStatus.CREATED)
@@ -119,9 +119,9 @@ public class AppointmentConcurrencyTest extends GraphApiMockTest {
     @Test(description = "Teilweise Überschneidung (10:00–11:00 gegen 10:30–11:30) muss abgewiesen werden")
     public void teilweiseUeberschneidung() {
         ResponseEntity<String> erste = buchen(
-                terminAnfrage("10:00:00", "11:00:00", "erste@example.de"));
+                appointmentRequest("10:00:00", "11:00:00", "erste@example.de"));
         ResponseEntity<String> zweite = buchen(
-                terminAnfrage("10:30:00", "11:30:00", "zweite@example.de"));
+                appointmentRequest("10:30:00", "11:30:00", "zweite@example.de"));
 
         assertThat(erste.getStatusCode())
                 .as("Die erste Buchung muss angenommen werden")
@@ -191,7 +191,7 @@ public class AppointmentConcurrencyTest extends GraphApiMockTest {
         return restTemplate.exchange(url, HttpMethod.POST, new HttpEntity<>(request, authHeaders), String.class);
     }
 
-    private CreateAppointmentRequest terminAnfrage(String startZeit, String endZeit, String kundenEmail) {
+    private CreateAppointmentRequest appointmentRequest(String startZeit, String endZeit, String kundenEmail) {
         CreateAppointmentRequest request = new CreateAppointmentRequest();
         request.setServiceId(DIENST_ID);
         request.setWorkerNames(List.of("mitarbeiter-a"));
