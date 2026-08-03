@@ -32,8 +32,8 @@ package com.booking.azure.domain.exception;
  */
 public class GraphUnknownException extends RuntimeException {
 
-    public GraphUnknownException(String nachricht, Throwable ursache) {
-        super(nachricht, ursache);
+    public GraphUnknownException(String nachricht, Throwable cause) {
+        super(nachricht, cause);
     }
 }
 

@@ -26,36 +26,36 @@ public interface GraphApiRequest {
      *
      * @param path       Relativer API-Pfad (ohne Base-URL),
      *                   z. B. {@code /solutions/bookingBusinesses}
-     * @param antwortTyp Zielklasse für die JSON-Deserialisierung
+     * @param responseType Zielklasse für die JSON-Deserialisierung
      * @param <T>        Erwarteter Rückgabetyp
      * @return Deserialisiertes Antwortobjekt
      * @throws RuntimeException bei HTTP-Fehlern der Graph API
      */
-    <T> T get(String path, Class<T> antwortTyp);
+    <T> T get(String path, Class<T> responseType);
 
     /**
      * HTTP-POST-Anfrage an die Graph API senden.
      *
      * @param path       Relativer API-Pfad
      * @param body    Anfrageobjekt (wird als JSON serialisiert)
-     * @param antwortTyp Zielklasse für die JSON-Deserialisierung
+     * @param responseType Zielklasse für die JSON-Deserialisierung
      * @param <T>        Erwarteter Rückgabetyp
      * @return Deserialisiertes Antwortobjekt
      * @throws RuntimeException bei HTTP-Fehlern der Graph API
      */
-    <T> T post(String path, Object body, Class<T> antwortTyp);
+    <T> T post(String path, Object body, Class<T> responseType);
 
     /**
      * HTTP-PATCH-Anfrage an die Graph API senden (Teilaktualisierung).
      *
      * @param path       Relativer API-Pfad
      * @param body    Anfrageobjekt mit den zu ändernden Feldern
-     * @param antwortTyp Zielklasse für die JSON-Deserialisierung
+     * @param responseType Zielklasse für die JSON-Deserialisierung
      * @param <T>        Erwarteter Rückgabetyp
      * @return Deserialisiertes Antwortobjekt
      * @throws RuntimeException bei HTTP-Fehlern der Graph API
      */
-    <T> T patch(String path, Object body, Class<T> antwortTyp);
+    <T> T patch(String path, Object body, Class<T> responseType);
 
     /**
      * HTTP-DELETE-Anfrage an die Graph API senden.

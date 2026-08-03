@@ -46,33 +46,33 @@ public final class TimeZoneConverter {
             throw new IllegalArgumentException("dateTime fehlt");
         }
 
-        String rohzeit = dto.getDateTime().trim();
+        String rawTime = dto.getDateTime().trim();
 
         // Fall 1: der Wert trägt bereits einen Offset ("...Z" oder "...+02:00").
         // Dann ist er absolut und die Zonenangabe daneben ist irrelevant.
         try {
-            return OffsetDateTime.parse(rohzeit).toInstant();
+            return OffsetDateTime.parse(rawTime).toInstant();
         } catch (DateTimeParseException nichtAbsolut) {
             // weiter mit Fall 2
         }
 
         // Fall 2: lokale Zeit ohne Offset – die Zonenangabe entscheidet.
-        ZoneId zone = zoneErmitteln(dto.getTimeZone());
+        ZoneId zone = resolveZone(dto.getTimeZone());
         try {
-            return LocalDateTime.parse(rohzeit).atZone(zone).toInstant();
+            return LocalDateTime.parse(rawTime).atZone(zone).toInstant();
         } catch (DateTimeParseException ex) {
             throw new IllegalArgumentException(
-                    "dateTime '%s' ist kein gültiger ISO-8601-Zeitstempel".formatted(rohzeit), ex);
+                    "dateTime '%s' ist kein gültiger ISO-8601-Zeitstempel".formatted(rawTime), ex);
         }
     }
 
-    private static ZoneId zoneErmitteln(String zonenName) {
-        if (zonenName == null || zonenName.isBlank()) {
+    private static ZoneId resolveZone(String zoneName) {
+        if (zoneName == null || zoneName.isBlank()) {
             throw new IllegalArgumentException(
                     "timeZone fehlt. Ohne Zonenangabe ist die lokale Zeit nicht eindeutig.");
         }
         try {
-            return ZoneId.of(zonenName.trim());
+            return ZoneId.of(zoneName.trim());
         } catch (Exception ex) {
             // Microsoft Graph liefert je nach Endpunkt auch Windows-Zonennamen
             // ("W. Europe Standard Time") statt IANA-Namen ("Europe/Berlin").
@@ -80,7 +80,7 @@ public final class TimeZoneConverter {
             // Abbildung wäre gefährlicher als eine klare Fehlermeldung.
             throw new IllegalArgumentException(
                     "timeZone '%s' ist kein bekannter IANA-Zonenname (erwartet z. B. 'Europe/Berlin' oder 'UTC')"
-                            .formatted(zonenName), ex);
+                            .formatted(zoneName), ex);
         }
     }
 }

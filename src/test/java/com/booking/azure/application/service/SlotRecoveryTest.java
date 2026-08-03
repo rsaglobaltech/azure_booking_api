@@ -56,7 +56,7 @@ public class SlotRecoveryTest extends GraphApiMockTest {
     private JdbcTemplate jdbcTemplate;
 
     /**
-     * Erzeugt eine verwaiste Reservierung auf dem realistischen Weg: Graph
+     * Erzeugt eine orphaned Reservierung auf dem realistischen Weg: Graph
      * antwortet zu langsam, die Reservierung bleibt PENDING stehen.
      */
     @BeforeMethod
@@ -68,14 +68,14 @@ public class SlotRecoveryTest extends GraphApiMockTest {
                         .withHeader("Content-Type", "application/json")
                         .withBody(terminJson())));
 
-        ResponseEntity<String> antwort = buchen();
-        assertThat(antwort.getStatusCode()).isEqualTo(HttpStatus.GATEWAY_TIMEOUT);
+        ResponseEntity<String> response = buchen();
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.GATEWAY_TIMEOUT);
 
         // Frist vorziehen, statt 90 Sekunden zu warten.
         jdbcTemplate.execute("UPDATE slot_reservation SET expires_at = CURRENT_TIMESTAMP - INTERVAL '1' MINUTE WHERE state = 'PENDING'");
 
         assertThat(anzahlMitZustand("PENDING"))
-                .as("Vorbedingung: genau eine verwaiste PENDING-Reservierung")
+                .as("Vorbedingung: genau eine orphaned PENDING-Reservierung")
                 .isEqualTo(1);
     }
 
@@ -94,9 +94,9 @@ public class SlotRecoveryTest extends GraphApiMockTest {
                 }
                 """.formatted(TERMIN_ID, DIENST_ID, MITARBEITER_A));
 
-        int bearbeitet = recovery.recoverOrphaned();
+        int processed = recovery.recoverOrphaned();
 
-        assertThat(bearbeitet).isEqualTo(1);
+        assertThat(processed).isEqualTo(1);
         assertThat(anzahlMitZustand("CONFIRMED"))
                 .as("""
                         Der Termin existiert – der Schreibvorgang hat stattgefunden. Die \
@@ -122,9 +122,9 @@ public class SlotRecoveryTest extends GraphApiMockTest {
     public void verwaisteOhneTerminWerdenFreigegeben() {
         graphKalenderLiefert("{ \"value\": [] }");
 
-        int bearbeitet = recovery.recoverOrphaned();
+        int processed = recovery.recoverOrphaned();
 
-        assertThat(bearbeitet).isEqualTo(1);
+        assertThat(processed).isEqualTo(1);
         assertThat(anzahlMitZustand("RELEASED")).isEqualTo(1);
         assertThat(anzahlMitZustand("PENDING")).isZero();
 
@@ -139,9 +139,9 @@ public class SlotRecoveryTest extends GraphApiMockTest {
         GRAPH_MOCK.stubFor(get(urlPathEqualTo(GRAPH_KALENDER_PFAD))
                 .willReturn(aResponse().withStatus(503).withBody("{\"error\":\"nicht verfügbar\"}")));
 
-        int bearbeitet = recovery.recoverOrphaned();
+        int processed = recovery.recoverOrphaned();
 
-        assertThat(bearbeitet)
+        assertThat(processed)
                 .as("Ohne Antwort von Graph gibt es keine Entscheidungsgrundlage")
                 .isZero();
         assertThat(anzahlMitZustand("PENDING"))
@@ -191,9 +191,9 @@ public class SlotRecoveryTest extends GraphApiMockTest {
                         .withBody(terminJson())));
     }
 
-    private Integer anzahlMitZustand(String zustand) {
+    private Integer anzahlMitZustand(String state) {
         return jdbcTemplate.queryForObject(
-                "SELECT count(*) FROM slot_reservation WHERE state = ?", Integer.class, zustand);
+                "SELECT count(*) FROM slot_reservation WHERE state = ?", Integer.class, state);
     }
 
     private static String terminJson() {
@@ -209,18 +209,18 @@ public class SlotRecoveryTest extends GraphApiMockTest {
     }
 
     private ResponseEntity<String> buchen() {
-        CreateAppointmentRequest anfrage = new CreateAppointmentRequest();
-        anfrage.setServiceId(DIENST_ID);
-        anfrage.setWorkerNames(List.of(MITARBEITER_A));
-        anfrage.setStartDateTime(zeit("2026-08-03T10:00:00"));
-        anfrage.setEndDateTime(zeit("2026-08-03T11:00:00"));
+        CreateAppointmentRequest request = new CreateAppointmentRequest();
+        request.setServiceId(DIENST_ID);
+        request.setWorkerNames(List.of(MITARBEITER_A));
+        request.setStartDateTime(zeit("2026-08-03T10:00:00"));
+        request.setEndDateTime(zeit("2026-08-03T11:00:00"));
 
         BookingCustomerInfoDto kunde = new BookingCustomerInfoDto();
         kunde.setName("Testkunde");
         kunde.setEmailAddress("kunde@example.de");
-        anfrage.setCustomers(List.of(kunde));
+        request.setCustomers(List.of(kunde));
 
-        return restTemplate.exchange(EIGENE_API, HttpMethod.POST, new HttpEntity<>(anfrage, authHeaders), String.class);
+        return restTemplate.exchange(EIGENE_API, HttpMethod.POST, new HttpEntity<>(request, authHeaders), String.class);
     }
 
     private DateTimeTimeZoneDto zeit(String zeitstempel) {

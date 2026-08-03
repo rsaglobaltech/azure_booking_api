@@ -16,21 +16,21 @@ import java.util.Collections;
 public class MockGraphApiAdapter implements GraphApiRequest {
 
     @Override
-    public <T> T get(String path, Class<T> antwortTyp) {
+    public <T> T get(String path, Class<T> responseType) {
         log.info("Mocking Graph GET to: {}", path);
-        return createDummyInstance(antwortTyp);
+        return createDummyInstance(responseType);
     }
 
     @Override
-    public <T> T post(String path, Object body, Class<T> antwortTyp) {
+    public <T> T post(String path, Object body, Class<T> responseType) {
         log.info("Mocking Graph POST to: {} with body: {}", path, body);
-        return createDummyInstance(antwortTyp);
+        return createDummyInstance(responseType);
     }
 
     @Override
-    public <T> T patch(String path, Object body, Class<T> antwortTyp) {
+    public <T> T patch(String path, Object body, Class<T> responseType) {
         log.info("Mocking Graph PATCH to: {} with body: {}", path, body);
-        return createDummyInstance(antwortTyp);
+        return createDummyInstance(responseType);
     }
 
     @Override

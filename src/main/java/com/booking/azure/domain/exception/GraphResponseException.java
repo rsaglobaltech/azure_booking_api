@@ -22,8 +22,8 @@ public class GraphResponseException extends RuntimeException {
         this.status = status;
     }
 
-    public GraphResponseException(int status, String nachricht, Throwable ursache) {
-        super(nachricht, ursache);
+    public GraphResponseException(int status, String nachricht, Throwable cause) {
+        super(nachricht, cause);
         this.status = status;
     }
 

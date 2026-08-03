@@ -186,27 +186,27 @@ public class AppointmentConcurrencyTest extends GraphApiMockTest {
         return new ArrayList<>(antworten);
     }
 
-    private ResponseEntity<String> buchen(CreateAppointmentRequest anfrage) {
+    private ResponseEntity<String> buchen(CreateAppointmentRequest request) {
         String url = "/api/businesses/" + BETRIEB_ID + "/appointments";
-        return restTemplate.exchange(url, HttpMethod.POST, new HttpEntity<>(anfrage, authHeaders), String.class);
+        return restTemplate.exchange(url, HttpMethod.POST, new HttpEntity<>(request, authHeaders), String.class);
     }
 
     private CreateAppointmentRequest terminAnfrage(String startZeit, String endZeit, String kundenEmail) {
-        CreateAppointmentRequest anfrage = new CreateAppointmentRequest();
-        anfrage.setServiceId(DIENST_ID);
-        anfrage.setWorkerNames(List.of("mitarbeiter-a"));
-        anfrage.setStartDateTime(zeitpunkt(startZeit));
-        anfrage.setEndDateTime(zeitpunkt(endZeit));
+        CreateAppointmentRequest request = new CreateAppointmentRequest();
+        request.setServiceId(DIENST_ID);
+        request.setWorkerNames(List.of("mitarbeiter-a"));
+        request.setStartDateTime(moment(startZeit));
+        request.setEndDateTime(moment(endZeit));
 
         BookingCustomerInfoDto kunde = new BookingCustomerInfoDto();
         kunde.setName("Testkunde");
         kunde.setEmailAddress(kundenEmail);
-        anfrage.setCustomers(List.of(kunde));
+        request.setCustomers(List.of(kunde));
 
-        return anfrage;
+        return request;
     }
 
-    private DateTimeTimeZoneDto zeitpunkt(String uhrzeit) {
+    private DateTimeTimeZoneDto moment(String uhrzeit) {
         DateTimeTimeZoneDto dto = new DateTimeTimeZoneDto();
         dto.setDateTime("2026-08-03T" + uhrzeit);
         dto.setTimeZone("Europe/Berlin");

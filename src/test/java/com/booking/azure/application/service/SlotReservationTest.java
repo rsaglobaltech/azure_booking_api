@@ -47,12 +47,12 @@ public class SlotReservationTest extends GraphApiMockTest {
     public void zeitzonenWerdenNormalisiert() {
         graphNimmtTermineAn();
 
-        ResponseEntity<String> berlin = buchen(anfrage(
+        ResponseEntity<String> berlin = buchen(request(
                 zeit("2026-08-03T10:00:00", "Europe/Berlin"),
                 zeit("2026-08-03T11:00:00", "Europe/Berlin"),
                 MITARBEITER_A));
 
-        ResponseEntity<String> utc = buchen(anfrage(
+        ResponseEntity<String> utc = buchen(request(
                 zeit("2026-08-03T08:00:00", "UTC"),
                 zeit("2026-08-03T09:00:00", "UTC"),
                 MITARBEITER_A));
@@ -70,12 +70,12 @@ public class SlotReservationTest extends GraphApiMockTest {
     public void unbekannteZeitzone() {
         graphNimmtTermineAn();
 
-        ResponseEntity<String> antwort = buchen(anfrage(
+        ResponseEntity<String> response = buchen(request(
                 zeit("2026-08-03T10:00:00", "W. Europe Standard Time"),
                 zeit("2026-08-03T11:00:00", "W. Europe Standard Time"),
                 MITARBEITER_A));
 
-        assertThat(antwort.getStatusCode())
+        assertThat(response.getStatusCode())
                 .as("Windows-Zonennamen werden bewusst nicht übersetzt – klarer Eingabefehler")
                 .isEqualTo(HttpStatus.BAD_REQUEST);
     }
@@ -86,9 +86,9 @@ public class SlotReservationTest extends GraphApiMockTest {
     public void anschliessendeTermineSindErlaubt() {
         graphNimmtTermineAn();
 
-        ResponseEntity<String> erster = buchen(anfrage(
+        ResponseEntity<String> erster = buchen(request(
                 zeit("2026-08-03T10:00:00", "UTC"), zeit("2026-08-03T11:00:00", "UTC"), MITARBEITER_A));
-        ResponseEntity<String> zweiter = buchen(anfrage(
+        ResponseEntity<String> zweiter = buchen(request(
                 zeit("2026-08-03T11:00:00", "UTC"), zeit("2026-08-03T12:00:00", "UTC"), MITARBEITER_A));
 
         assertThat(erster.getStatusCode()).isEqualTo(HttpStatus.CREATED);
@@ -104,9 +104,9 @@ public class SlotReservationTest extends GraphApiMockTest {
     public void andererMitarbeiterKeinKonflikt() {
         graphNimmtTermineAn();
 
-        ResponseEntity<String> a = buchen(anfrage(
+        ResponseEntity<String> a = buchen(request(
                 zeit("2026-08-03T10:00:00", "UTC"), zeit("2026-08-03T11:00:00", "UTC"), MITARBEITER_A));
-        ResponseEntity<String> b = buchen(anfrage(
+        ResponseEntity<String> b = buchen(request(
                 zeit("2026-08-03T10:00:00", "UTC"), zeit("2026-08-03T11:00:00", "UTC"), MITARBEITER_B));
 
         assertThat(a.getStatusCode()).isEqualTo(HttpStatus.CREATED);
@@ -117,10 +117,10 @@ public class SlotReservationTest extends GraphApiMockTest {
     public void einBelegterMitarbeiterBlockiertDieGanzeAnfrage() {
         graphNimmtTermineAn();
 
-        buchen(anfrage(zeit("2026-08-03T10:00:00", "UTC"),
+        buchen(request(zeit("2026-08-03T10:00:00", "UTC"),
                 zeit("2026-08-03T11:00:00", "UTC"), MITARBEITER_B));
 
-        ResponseEntity<String> zuZweit = buchen(anfrage(
+        ResponseEntity<String> zuZweit = buchen(request(
                 zeit("2026-08-03T10:00:00", "UTC"), zeit("2026-08-03T11:00:00", "UTC"),
                 MITARBEITER_A, MITARBEITER_B));
 
@@ -129,7 +129,7 @@ public class SlotReservationTest extends GraphApiMockTest {
                 .isEqualTo(HttpStatus.CONFLICT);
 
         // Und A darf danach nicht halb reserviert zurückbleiben.
-        ResponseEntity<String> nurA = buchen(anfrage(
+        ResponseEntity<String> nurA = buchen(request(
                 zeit("2026-08-03T10:00:00", "UTC"), zeit("2026-08-03T11:00:00", "UTC"), MITARBEITER_A));
         assertThat(nurA.getStatusCode())
                 .as("Die gescheiterte Reservierung muss vollständig zurückgerollt sein")
@@ -143,12 +143,12 @@ public class SlotReservationTest extends GraphApiMockTest {
         GRAPH_MOCK.stubFor(post(urlPathEqualTo(GRAPH_TERMIN_PFAD))
                 .willReturn(aResponse().withStatus(500).withBody("{\"error\":\"kaputt\"}")));
 
-        ResponseEntity<String> gescheitert = buchen(anfrage(
+        ResponseEntity<String> gescheitert = buchen(request(
                 zeit("2026-08-03T10:00:00", "UTC"), zeit("2026-08-03T11:00:00", "UTC"), MITARBEITER_A));
         assertThat(gescheitert.getStatusCode()).isEqualTo(HttpStatus.BAD_GATEWAY);
 
         graphNimmtTermineAn();
-        ResponseEntity<String> erneut = buchen(anfrage(
+        ResponseEntity<String> erneut = buchen(request(
                 zeit("2026-08-03T10:00:00", "UTC"), zeit("2026-08-03T11:00:00", "UTC"), MITARBEITER_A));
 
         assertThat(erneut.getStatusCode())
@@ -169,7 +169,7 @@ public class SlotReservationTest extends GraphApiMockTest {
                         .withHeader("Content-Type", "application/json")
                         .withBody(terminJson())));
 
-        ResponseEntity<String> erste = buchen(anfrage(
+        ResponseEntity<String> erste = buchen(request(
                 zeit("2026-08-03T10:00:00", "UTC"), zeit("2026-08-03T11:00:00", "UTC"), MITARBEITER_A));
 
         assertThat(erste.getStatusCode())
@@ -183,7 +183,7 @@ public class SlotReservationTest extends GraphApiMockTest {
         // Der Client wiederholt, wie es HTTP-Clients nach einer Zeitüberschreitung tun.
         // Graph antwortet jetzt sofort.
         graphNimmtTermineAn();
-        ResponseEntity<String> wiederholung = buchen(anfrage(
+        ResponseEntity<String> wiederholung = buchen(request(
                 zeit("2026-08-03T10:00:00", "UTC"), zeit("2026-08-03T11:00:00", "UTC"), MITARBEITER_A));
 
         assertThat(wiederholung.getStatusCode())
@@ -206,12 +206,12 @@ public class SlotReservationTest extends GraphApiMockTest {
         GRAPH_MOCK.stubFor(delete(urlPathMatching(GRAPH_TERMIN_PFAD + "/.*"))
                 .willReturn(aResponse().withStatus(204)));
 
-        buchen(anfrage(zeit("2026-08-03T10:00:00", "UTC"),
+        buchen(request(zeit("2026-08-03T10:00:00", "UTC"),
                 zeit("2026-08-03T11:00:00", "UTC"), MITARBEITER_A));
 
         restTemplate.exchange(EIGENE_API + "/" + TERMIN_ID, HttpMethod.DELETE, new HttpEntity<>(authHeaders), String.class);
 
-        ResponseEntity<String> erneut = buchen(anfrage(
+        ResponseEntity<String> erneut = buchen(request(
                 zeit("2026-08-03T10:00:00", "UTC"), zeit("2026-08-03T11:00:00", "UTC"), MITARBEITER_A));
 
         assertThat(erneut.getStatusCode())
@@ -228,20 +228,20 @@ public class SlotReservationTest extends GraphApiMockTest {
                         .withHeader("Content-Type", "application/json")
                         .withBody(terminJson())));
 
-        buchen(anfrage(zeit("2026-08-03T10:00:00", "UTC"),
+        buchen(request(zeit("2026-08-03T10:00:00", "UTC"),
                 zeit("2026-08-03T11:00:00", "UTC"), MITARBEITER_A));
 
         restTemplate.exchange(EIGENE_API + "/" + TERMIN_ID, HttpMethod.PUT, new HttpEntity<>(
-                anfrage(zeit("2026-08-03T14:00:00", "UTC"),
+                request(zeit("2026-08-03T14:00:00", "UTC"),
                         zeit("2026-08-03T15:00:00", "UTC"), MITARBEITER_A), authHeaders), String.class);
 
-        ResponseEntity<String> alterSlot = buchen(anfrage(
+        ResponseEntity<String> alterSlot = buchen(request(
                 zeit("2026-08-03T10:00:00", "UTC"), zeit("2026-08-03T11:00:00", "UTC"), MITARBEITER_A));
         assertThat(alterSlot.getStatusCode())
                 .as("Der alte Slot muss nach der Umbuchung wieder frei sein")
                 .isEqualTo(HttpStatus.CREATED);
 
-        ResponseEntity<String> neuerSlot = buchen(anfrage(
+        ResponseEntity<String> neuerSlot = buchen(request(
                 zeit("2026-08-03T14:00:00", "UTC"), zeit("2026-08-03T15:00:00", "UTC"), MITARBEITER_A));
         assertThat(neuerSlot.getStatusCode())
                 .as("Der neue Slot muss nach der Umbuchung belegt sein")
@@ -252,9 +252,9 @@ public class SlotReservationTest extends GraphApiMockTest {
     public void abgewieseneBuchungErreichtGraphNicht() {
         graphNimmtTermineAn();
 
-        buchen(anfrage(zeit("2026-08-03T10:00:00", "UTC"),
+        buchen(request(zeit("2026-08-03T10:00:00", "UTC"),
                 zeit("2026-08-03T11:00:00", "UTC"), MITARBEITER_A));
-        buchen(anfrage(zeit("2026-08-03T10:00:00", "UTC"),
+        buchen(request(zeit("2026-08-03T10:00:00", "UTC"),
                 zeit("2026-08-03T11:00:00", "UTC"), MITARBEITER_A));
 
         assertThat(GRAPH_MOCK.findAll(postRequestedFor(urlPathEqualTo(GRAPH_TERMIN_PFAD))).size())
@@ -283,25 +283,25 @@ public class SlotReservationTest extends GraphApiMockTest {
                 """.formatted(TERMIN_ID, DIENST_ID);
     }
 
-    private ResponseEntity<String> buchen(CreateAppointmentRequest anfrage) {
-        return restTemplate.exchange(EIGENE_API, HttpMethod.POST, new HttpEntity<>(anfrage, authHeaders), String.class);
+    private ResponseEntity<String> buchen(CreateAppointmentRequest request) {
+        return restTemplate.exchange(EIGENE_API, HttpMethod.POST, new HttpEntity<>(request, authHeaders), String.class);
     }
 
-    private CreateAppointmentRequest anfrage(DateTimeTimeZoneDto start,
+    private CreateAppointmentRequest request(DateTimeTimeZoneDto start,
                                              DateTimeTimeZoneDto ende,
                                              String... mitarbeiterIds) {
-        CreateAppointmentRequest anfrage = new CreateAppointmentRequest();
-        anfrage.setServiceId(DIENST_ID);
-        anfrage.setWorkerNames(List.of(mitarbeiterIds));
-        anfrage.setStartDateTime(start);
-        anfrage.setEndDateTime(ende);
+        CreateAppointmentRequest request = new CreateAppointmentRequest();
+        request.setServiceId(DIENST_ID);
+        request.setWorkerNames(List.of(mitarbeiterIds));
+        request.setStartDateTime(start);
+        request.setEndDateTime(ende);
 
         BookingCustomerInfoDto kunde = new BookingCustomerInfoDto();
         kunde.setName("Testkunde");
         kunde.setEmailAddress("kunde@example.de");
-        anfrage.setCustomers(List.of(kunde));
+        request.setCustomers(List.of(kunde));
 
-        return anfrage;
+        return request;
     }
 
     private DateTimeTimeZoneDto zeit(String zeitstempel, String zone) {

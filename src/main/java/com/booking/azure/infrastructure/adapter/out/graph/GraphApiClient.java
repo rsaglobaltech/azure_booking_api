@@ -57,11 +57,11 @@ public class GraphApiClient implements GraphApiRequest {
      * HTTP-GET-Anfrage an die Graph API senden.
      *
      * @param path       Relativer API-Pfad (ohne Base-URL)
-     * @param antwortTyp Zielklasse für die JSON-Deserialisierung
+     * @param responseType Zielklasse für die JSON-Deserialisierung
      * @return Deserialisiertes Antwortobjekt
      */
     @Override
-    public <T> T get(String path, Class<T> antwortTyp) {
+    public <T> T get(String path, Class<T> responseType) {
         String url = properties.getBaseUrl() + path;
         log.debug("GET-Anfrage an Graph API: {}", url);
 
@@ -70,8 +70,8 @@ public class GraphApiClient implements GraphApiRequest {
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + authService.getAccessToken())
                 .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
                 .retrieve()
-                .onStatus(HttpStatusCode::isError, this::fehlerAbbilden)
-                .bodyToMono(antwortTyp)
+                .onStatus(HttpStatusCode::isError, this::mapError)
+                .bodyToMono(responseType)
                 .block());
     }
 
@@ -80,11 +80,11 @@ public class GraphApiClient implements GraphApiRequest {
      *
      * @param path       Relativer API-Pfad
      * @param body    Anfrageobjekt (wird als JSON serialisiert)
-     * @param antwortTyp Zielklasse für die JSON-Deserialisierung
+     * @param responseType Zielklasse für die JSON-Deserialisierung
      * @return Deserialisiertes Antwortobjekt
      */
     @Override
-    public <T> T post(String path, Object body, Class<T> antwortTyp) {
+    public <T> T post(String path, Object body, Class<T> responseType) {
         String url = properties.getBaseUrl() + path;
         log.debug("POST-Anfrage an Graph API: {}", url);
 
@@ -94,8 +94,8 @@ public class GraphApiClient implements GraphApiRequest {
                 .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
                 .bodyValue(body)
                 .retrieve()
-                .onStatus(HttpStatusCode::isError, this::fehlerAbbilden)
-                .bodyToMono(antwortTyp)
+                .onStatus(HttpStatusCode::isError, this::mapError)
+                .bodyToMono(responseType)
                 .block());
     }
 
@@ -104,11 +104,11 @@ public class GraphApiClient implements GraphApiRequest {
      *
      * @param path       Relativer API-Pfad
      * @param body    Anfrageobjekt mit den zu ändernden Feldern
-     * @param antwortTyp Zielklasse für die JSON-Deserialisierung
+     * @param responseType Zielklasse für die JSON-Deserialisierung
      * @return Deserialisiertes Antwortobjekt
      */
     @Override
-    public <T> T patch(String path, Object body, Class<T> antwortTyp) {
+    public <T> T patch(String path, Object body, Class<T> responseType) {
         String url = properties.getBaseUrl() + path;
         log.debug("PATCH-Anfrage an Graph API: {}", url);
 
@@ -118,8 +118,8 @@ public class GraphApiClient implements GraphApiRequest {
                 .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
                 .bodyValue(body)
                 .retrieve()
-                .onStatus(HttpStatusCode::isError, this::fehlerAbbilden)
-                .bodyToMono(antwortTyp)
+                .onStatus(HttpStatusCode::isError, this::mapError)
+                .bodyToMono(responseType)
                 .block());
     }
 
@@ -137,7 +137,7 @@ public class GraphApiClient implements GraphApiRequest {
                 .uri(url)
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + authService.getAccessToken())
                 .retrieve()
-                .onStatus(HttpStatusCode::isError, this::fehlerAbbilden)
+                .onStatus(HttpStatusCode::isError, this::mapError)
                 .bodyToMono(Void.class)
                 .block());
     }
@@ -188,9 +188,9 @@ public class GraphApiClient implements GraphApiRequest {
     }
 
     /** Baut aus einer Fehlerantwort von Graph eine {@link GraphResponseException}. */
-    private Mono<Throwable> fehlerAbbilden(org.springframework.web.reactive.function.client.ClientResponse antwort) {
-        int status = antwort.statusCode().value();
-        return antwort.bodyToMono(String.class)
+    private Mono<Throwable> mapError(org.springframework.web.reactive.function.client.ClientResponse response) {
+        int status = response.statusCode().value();
+        return response.bodyToMono(String.class)
                 .defaultIfEmpty("")
                 .map(body -> new GraphResponseException(status,
                         "Graph-API-Fehler [" + status + "]: " + body));

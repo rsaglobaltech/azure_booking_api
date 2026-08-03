@@ -44,9 +44,9 @@ public class BookingServiceMgr implements ServiceManagement {
     @Override
     public List<BookingServiceDto> listServices(String businessId) {
         log.info("Dienste werden aufgelistet für Betrieb: {}", businessId);
-        ListResponse<BookingServiceDto> antwort = graphApiRequest.get(
+        ListResponse<BookingServiceDto> response = graphApiRequest.get(
                 dienstePfad(businessId), ListResponse.class);
-        return listeMappen(antwort.getValue(), BookingServiceDto.class);
+        return listeMappen(response.getValue(), BookingServiceDto.class);
     }
 
     /**

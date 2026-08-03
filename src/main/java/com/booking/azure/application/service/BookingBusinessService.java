@@ -54,9 +54,9 @@ public class BookingBusinessService implements AgencyManagement {
     @Override
     public List<BookingBusinessDto> listBusinesses() {
         log.info("Alle Buchungsbetriebe des Mandanten werden aufgelistet");
-        ListResponse<BookingBusinessDto> antwort = graphApiRequest.get(API_PFAD,
+        ListResponse<BookingBusinessDto> response = graphApiRequest.get(API_PFAD,
                 ListResponse.class);
-        List<BookingBusinessDto> betriebe = listeMappen(antwort.getValue(), BookingBusinessDto.class);
+        List<BookingBusinessDto> betriebe = listeMappen(response.getValue(), BookingBusinessDto.class);
         betriebe.forEach(this::buchungsUrlSetzen);
         return betriebe;
     }
@@ -72,10 +72,10 @@ public class BookingBusinessService implements AgencyManagement {
     @Override
     public BookingBusinessDto getBusiness(String businessId) {
         log.info("Buchungsbetrieb wird abgerufen: {}", businessId);
-        BookingBusinessDto betrieb = graphApiRequest.get(API_PFAD + "/" + businessId,
+        BookingBusinessDto business = graphApiRequest.get(API_PFAD + "/" + businessId,
                 BookingBusinessDto.class);
-        buchungsUrlSetzen(betrieb);
-        return betrieb;
+        buchungsUrlSetzen(business);
+        return business;
     }
 
     /**
@@ -152,11 +152,11 @@ public class BookingBusinessService implements AgencyManagement {
      * Format: {@code https://outlook.office.com/book/{agenturName}@midominio.com}
      * Der Agenturname (businessId) ist immer dynamisch.
      *
-     * @param betrieb Buchungsbetrieb-DTO
+     * @param business Buchungsbetrieb-DTO
      */
-    private void buchungsUrlSetzen(BookingBusinessDto betrieb) {
-        if (betrieb != null && betrieb.getId() != null && !betrieb.getId().isBlank()) {
-            betrieb.setBuchungsUrl(buchungsBasisUrl + betrieb.getId());
+    private void buchungsUrlSetzen(BookingBusinessDto business) {
+        if (business != null && business.getId() != null && !business.getId().isBlank()) {
+            business.setBuchungsUrl(buchungsBasisUrl + business.getId());
         }
     }
 

@@ -47,9 +47,9 @@ public class StaffMemberService implements StaffManagement {
     @Override
     public List<BookingStaffMemberDto> listStaffMembers(String businessId) {
         log.info("Mitarbeiter werden aufgelistet für Betrieb: {}", businessId);
-        ListResponse<BookingStaffMemberDto> antwort = graphApiRequest.get(
+        ListResponse<BookingStaffMemberDto> response = graphApiRequest.get(
                 mitarbeiterPfad(businessId), ListResponse.class);
-        return listeMappen(antwort.getValue(), BookingStaffMemberDto.class);
+        return listeMappen(response.getValue(), BookingStaffMemberDto.class);
     }
 
     /**
@@ -130,10 +130,10 @@ public class StaffMemberService implements StaffManagement {
                 businessId, request.getStaffIds());
 
         String path = "/solutions/bookingBusinesses/" + businessId + "/getStaffAvailability";
-        StaffAvailabilityResponseDto antwort = graphApiRequest.post(path, request,
+        StaffAvailabilityResponseDto response = graphApiRequest.post(path, request,
                 StaffAvailabilityResponseDto.class);
 
-        return antwort != null ? antwort.getStaffAvailabilityItem() : List.of();
+        return response != null ? response.getStaffAvailabilityItem() : List.of();
     }
 
     @SuppressWarnings("unchecked")
