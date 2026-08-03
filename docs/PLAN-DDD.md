@@ -102,9 +102,35 @@ y llama a `BookingNotificationPort`. Elimina `AppointmentService.sendNotificatio
 | 2 | Agregado `Agency` + `StaffMember` | `ResponseStatusException` fuera de la capa de aplicación | ✅ |
 | 3 | Agregado `Booking` + `SlotReservation` de dominio | Máquina de estados fuera del adapter; migración `V3__booking_id.sql` | ✅ |
 | 4 | Eventos + bus en memoria | Notificación desacoplada por evento | ✅ |
-| 5 | Casos de uso + ACL de Graph | DTO web → command → dominio; puerto con forma de dominio | ⬜ pendiente |
-| 6 | Tests + ArchUnit ampliado | 36 tests de dominio sin Spring; 4 reglas nuevas | ✅ parcial |
-| 7 | Barrida final alemán → inglés | Identificadores restantes en infra, DTOs y tests | ⬜ pendiente |
+| 5 | Casos de uso + ACL de Graph | Puertos de entrada, commands y `GraphApiRequest` fuera del dominio | 🟡 parcial |
+| 6 | Tests + ArchUnit ampliado | 36 tests de dominio sin Spring; 6 reglas nuevas | ✅ |
+| 7 | Barrida alemán → inglés | Todos los identificadores traducidos | 🟡 falta la prosa |
+
+### Lo que queda
+
+**Fase 5 — la parte profunda de la ACL.** Falta `AppointmentDraft` (tipo de dominio que
+describe la cita a escribir), un puerto de escritura que lo acepte, y el traductor a JSON de
+Graph en infraestructura. Hoy `GraphApiRequest` sigue siendo un puerto con forma de HTTP
+(`get`/`post`/`patch` sobre rutas), aunque ya vive en `application/port/out`, una capa a la
+que sí le corresponde conocer el transporte.
+
+*Riesgo a tener en cuenta al abordarlo:* hoy se envía a Graph el objeto de request original,
+que conserva literalmente el `dateTime` local y el `timeZone` que mandó el cliente. Si el
+payload se construye desde el `TimeWindow` (UTC), el JSON saliente cambia — mismo instante,
+distinta representación. `AppointmentDraft` debería llevar también la zona en que el cliente
+expresó la cita para poder reproducir el formato original.
+
+**Fase 7 — la prosa.** Los identificadores están todos en inglés; los comentarios y javadoc
+siguen en alemán en la infraestructura, los DTOs y los tests. Los archivos reescritos durante
+el refactor ya llevan prosa en inglés.
+
+### Nombres que se quedan en alemán a propósito
+
+`GlobalExceptionHandler.Fehlerantwort` y sus componentes `nachricht` y `zeitstempel`.
+Jackson serializa un record por los nombres de sus componentes, así que este tipo emite
+`{"status":…,"nachricht":…,"zeitstempel":…}` — el cuerpo de error que ya parsea todo cliente
+existente. Renombrarlos rompe a esos clientes en silencio: es una decisión de versión de API,
+no un refactor.
 
 ### Bloqueos de entorno resueltos en la fase 0
 
