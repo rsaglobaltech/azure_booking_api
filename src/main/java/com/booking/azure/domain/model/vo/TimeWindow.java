@@ -4,28 +4,29 @@ import java.time.Duration;
 import java.time.Instant;
 
 /**
- * A half-open time interval {@code [start, end)}, always in UTC.
+ * Un intervalo temporal semiabierto {@code [inicio, fin)}, siempre en UTC.
  *
- * <h2>Why this value object exists</h2>
+ * <h2>Por qué existe este objeto de valor</h2>
  *
- * The overlap rule is the core invariant of this system: two bookings for the
- * same staff member must never overlap. Before this class existed the rule was
- * written three separate times — in the recovery service, in the SQL query and
- * in the reservation request — and could therefore drift apart. This class is
- * now the single source of truth; every other place delegates to it.
+ * La regla de solape es <b>la invariante central del sistema</b>: dos reservas
+ * para el mismo empleado nunca deben solaparse. Antes de que existiera esta
+ * clase, la regla estaba escrita <b>tres veces por separado</b> —en el servicio
+ * de recuperación, en la consulta SQL y en la petición de reserva— y por tanto
+ * podían divergir sin que nadie se diera cuenta. Ahora esta clase es la única
+ * fuente de verdad y todo lo demás delega en ella.
  *
- * <h2>Why the interval is half-open</h2>
+ * <h2>Por qué el intervalo es semiabierto</h2>
  *
- * A booking ending at 11:00 and one starting at 11:00 do not overlap. Treating
- * the interval as closed would reject that pair and make back-to-back
- * appointments impossible.
+ * Una cita que termina a las 11:00 y otra que empieza a las 11:00 <b>no</b> se
+ * solapan. Tratar el intervalo como cerrado rechazaría ese par y haría imposible
+ * encadenar citas seguidas — justo lo que una agenda necesita hacer todo el día.
  *
- * <h2>Why UTC</h2>
+ * <h2>Por qué UTC</h2>
  *
- * Conversion from local time plus zone happens in the application layer, before
- * this object is built. Without that normalisation {@code 10:00 Europe/Berlin}
- * and {@code 08:00 UTC} would count as different windows and the collision
- * would go undetected.
+ * La conversión desde hora local más zona ocurre en la capa de aplicación, antes
+ * de construir este objeto. Sin esa normalización, {@code 10:00 Europe/Madrid} y
+ * {@code 08:00 UTC} contarían como ventanas distintas siendo el mismo instante,
+ * y la colisión pasaría inadvertida.
  */
 public record TimeWindow(Instant start, Instant end) {
 
@@ -44,9 +45,11 @@ public record TimeWindow(Instant start, Instant end) {
     }
 
     /**
-     * Whether this window overlaps another one.
+     * Si esta ventana se solapa con otra.
      *
-     * Half-open comparison: touching windows do not overlap.
+     * <p>Comparación semiabierta: las ventanas que solo se tocan no se solapan.
+     * La consulta {@code countOverlappingReservations} implementa esta misma
+     * condición en SQL; si una de las dos cambia, la otra debe cambiar con ella.
      */
     public boolean overlaps(TimeWindow other) {
         return other.start.isBefore(this.end) && this.start.isBefore(other.end);

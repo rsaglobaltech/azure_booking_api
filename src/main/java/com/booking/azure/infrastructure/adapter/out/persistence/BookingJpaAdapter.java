@@ -28,13 +28,29 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
- * Infrastructure adapter: implements {@link BookingRepository} on Oracle.
+ * Adaptador de infraestructura: implementa {@link BookingRepository} sobre Oracle.
  *
- * <h2>Division of responsibility</h2>
+ * <h2>Reparto de responsabilidades</h2>
  *
- * The aggregate decides <i>what</i> state a booking is in; this class decides
- * <i>how</i> that state reaches the database, and enforces the one invariant the
- * aggregate cannot see: that two different bookings must not overlap.
+ * El agregado decide <i>en qué</i> estado está una reserva; esta clase decide
+ * <i>cómo</i> llega ese estado a la base de datos, y hace cumplir la única
+ * invariante que el agregado no puede ver: que dos reservas distintas no se
+ * solapen.
+ *
+ * <h2>Por qué la exclusión mutua vive aquí y no en Microsoft Graph</h2>
+ *
+ * Graph no puede ser la autoridad. Sobre {@code bookingAppointment} no ofrece
+ * <b>bloqueos</b>, ni <b>transacciones</b>, ni <b>escrituras condicionales</b>:
+ * no existe un «crea la cita si el hueco está libre». Y el endpoint que usamos
+ * es el administrativo, que permite el sobrecupo <b>a propósito</b>, para que el
+ * personal pueda encajar citas aunque la agenda esté formalmente llena.
+ *
+ * <p>Resultado: dos peticiones simultáneas para el mismo médico y la misma hora
+ * reciben <b>ambas</b> un {@code 201 Created}, y nadie se entera hasta que dos
+ * clientes se presentan a la vez.
+ *
+ * <p>Por eso este sistema mantiene su propia tabla {@code slot_reservation} y
+ * decide aquí, <b>antes</b> de que Graph llegue a enterarse.
  */
 @Slf4j
 @Component
@@ -166,36 +182,81 @@ public class BookingJpaAdapter implements BookingRepository {
     // ───────────────────────────────── helpers ─────────────────────────────────
 
     /**
-     * CORE COLLISION ALGORITHM (Oracle compatible)
+     * ALGORITMO DE COLISIÓN — el corazón del sistema.
      *
-     * Oracle does not support PostgreSQL's {@code EXCLUDE USING gist} constraint
-     * (as originally described in docs/PLAN-COLISION-RESERVAS.md), so double
-     * bookings are prevented programmatically with pessimistic locking:
+     * <h2>De dónde viene</h2>
+     *
+     * El diseño original (véase {@code docs/PLAN-COLISION-RESERVAS.md}) se
+     * apoyaba en PostgreSQL, donde la propia base de datos rechaza las filas
+     * solapadas:
+     *
+     * <pre>
+     * CONSTRAINT ex_slot_overlap EXCLUDE USING gist (
+     *     staff_member_id WITH =,
+     *     tsrange(start_utc, end_utc) WITH &amp;&amp;
+     * ) WHERE (state IN ('PENDING', 'CONFIRMED'))
+     * </pre>
+     *
+     * Oracle no tiene {@code EXCLUDE USING gist} ni equivalente, así que la
+     * exclusión se impone por código, con bloqueo pesimista.
+     *
+     * <h2>Los tres pasos, y por qué ese orden</h2>
      *
      * <ol>
-     *   <li><b>Lock</b> — acquire a {@code PESSIMISTIC_WRITE} lock on the staff
-     *       member's row. This serialises all incoming booking requests for that
-     *       staff member, so only one transaction at a time can proceed.</li>
-     *   <li><b>Check</b> — query {@code countOverlappingReservations} for any
-     *       existing {@code PENDING} or {@code CONFIRMED} reservation overlapping
-     *       the requested window for that staff member.</li>
-     *   <li><b>Act</b> — if there is any overlap, abort with
-     *       {@link SlotConflictException} (HTTP 409). Otherwise insert the rows
-     *       and commit, releasing the lock.</li>
+     *   <li><b>Bloquear</b> — {@code PESSIMISTIC_WRITE} sobre la fila del
+     *       empleado ({@code SELECT ... FOR UPDATE}). Esto <b>serializa</b> todas
+     *       las peticiones para ese mismo empleado: solo una transacción avanza
+     *       cada vez.</li>
+     *   <li><b>Comprobar</b> — {@code countOverlappingReservations} busca
+     *       reservas bloqueantes ({@code PENDING} o {@code CONFIRMED}) que se
+     *       solapen con la ventana pedida.</li>
+     *   <li><b>Actuar</b> — si hay solape, se aborta con
+     *       {@link SlotConflictException} (HTTP 409). Si no, se insertan las
+     *       filas y se confirma la transacción, liberando el bloqueo.</li>
      * </ol>
      *
-     * {@code saveAllAndFlush} is essential: it forces the write to the database
-     * before the lock is released.
+     * <p><b>Bloquear antes de comprobar es todo el asunto.</b> Sin el bloqueo,
+     * dos transacciones podrían leer las dos «no hay conflicto» y luego insertar
+     * las dos:
      *
-     * <p>This is the invariant the aggregate cannot enforce on its own — a
-     * booking knows nothing about bookings it has never loaded.
+     * <pre>
+     *   t=0   A comprueba solapes → 0
+     *   t=1   B comprueba solapes → 0   (A aún no ha insertado)
+     *   t=2   A inserta. t=3 B inserta. Doble reserva.
+     * </pre>
+     *
+     * <p>{@code saveAllAndFlush} y no {@code saveAll}: la escritura tiene que
+     * llegar a la base de datos <b>antes</b> de que el commit suelte el bloqueo.
+     *
+     * <h2>El bloqueo va sobre el empleado, no sobre la tabla</h2>
+     *
+     * Así las reservas de empleados distintos siguen corriendo en paralelo. Solo
+     * se hace cola cuando compiten por la misma persona, que es exactamente
+     * cuando debe haberla.
+     *
+     * <h2>Lo que esta decisión cuesta</h2>
+     *
+     * <b>La regla ya no vive en el esquema.</b> Solo se aplica a las escrituras
+     * que pasan por este adaptador. Un script que inserte directamente en
+     * {@code slot_reservation} genera dobles reservas sin que la base de datos
+     * proteste. Con la restricción {@code EXCLUDE} de PostgreSQL eso era
+     * imposible.
+     *
+     * <h2>Por qué no está en el agregado</h2>
+     *
+     * Esta invariante cruza fronteras de agregado y no es comprobable en
+     * memoria: un {@code Booking} no sabe nada de reservas que nunca ha cargado.
+     * Por eso se queda aquí, y aquí se documenta.
      */
     private void store(Booking booking, SlotRequest request, Instant now) {
         TimeWindow window = request.window();
 
-        // 1. Lock the staff members and check for overlaps BEFORE inserting
+        // 1. Bloquear y comprobar ANTES de insertar, empleado por empleado.
+        //    Si la reserva abarca varios empleados y uno solo está ocupado,
+        //    falla la petición entera: o se reservan todos los huecos o ninguno.
         for (StaffMemberId staffMemberId : request.staffMemberIds()) {
-            // Pessimistic lock on the staff member row serialises requests for that member
+            // Bloqueo pesimista sobre la fila del empleado: serializa las
+            // peticiones que compiten por esa misma persona.
             staffRepository.lockByMsStaffMemberId(staffMemberId.value());
 
             int overlaps = repository.countOverlappingReservations(
@@ -213,7 +274,7 @@ public class BookingJpaAdapter implements BookingRepository {
             }
         }
 
-        // 2. Insert, then hand the generated ids back to the aggregate
+        // 2. Insertar y devolver al agregado los identificadores generados
         List<SlotReservationEntity> rows = booking.reservations().stream()
                 .map(reservation -> mapper.toNewEntity(booking, reservation, now))
                 .toList();

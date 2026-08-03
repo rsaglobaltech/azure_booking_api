@@ -1,14 +1,19 @@
 package com.booking.azure.domain.exception;
 
 /**
- * The requested time window is already taken for at least one staff member.
+ * La ventana solicitada ya está ocupada para al menos uno de los empleados.
  *
- * Domain layer: a business failure, independent of HTTP. Mapping it onto
- * {@code 409 Conflict} happens in the presentation layer's
+ * <p>Capa de dominio: es un fallo de negocio, independiente de HTTP. Su
+ * traducción a {@code 409 Conflict} ocurre en la capa de presentación, en
  * {@code GlobalExceptionHandler}.
  *
- * <p>Raised when the overlap check rejects the insert — that is, exactly when a
- * concurrent or earlier request has already won the slot.
+ * <p>Se lanza cuando la comprobación de solape rechaza la inserción — es decir,
+ * exactamente cuando otra petición, simultánea o anterior, ya se ha llevado el
+ * hueco.
+ *
+ * <p><b>No es un error del sistema.</b> Con peticiones concurrentes sobre la
+ * misma agenda, que una pierda es el funcionamiento normal y esperado; por eso
+ * se registra a nivel {@code INFO} y no como fallo.
  */
 public class SlotConflictException extends DomainException {
 

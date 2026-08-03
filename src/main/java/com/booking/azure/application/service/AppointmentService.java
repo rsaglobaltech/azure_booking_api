@@ -124,28 +124,35 @@ public class AppointmentService implements AppointmentManagement {
             return calendarPort.create(agency.tenantId(), agency.businessId(), draftOf(request, List.of()));
         }
 
-        // 1. Map names onto Microsoft identifiers
+        // 1. Traducir nombres a identificadores de Microsoft
         List<StaffMemberId> staffIds = resolveStaffIds(agency, request.getWorkerNames());
 
-        // 2. Take the local hold (slot reservation)
+        // 2. Retener el hueco localmente ANTES de tocar Graph.
+        //    Aquí se decide la exclusión mutua: si otra petición ya se llevó
+        //    este hueco, reserve() lanza SlotConflictException (409) y no se
+        //    llega a llamar a Graph. Véase BookingJpaAdapter#store.
         Booking booking = bookingRepository.reserve(slotRequest(businessId, request, staffIds))
                 .forCustomer(customerOf(request));
         publishEventsOf(booking);
 
-        // 3. Graph
+        // 3. Graph. Fuera de toda transacción: mantener una abierta durante
+        //    una llamada de red agota el pool de conexiones bajo carga.
         try {
             BookingAppointmentDto appointment =
                     calendarPort.create(agency.tenantId(), agency.businessId(), draftOf(request, staffIds));
             booking.confirm(AppointmentId.of(appointment.getId()));
             bookingRepository.save(booking);
 
-            // 4. Announce it. Whoever cares — today the confirmation email —
-            // subscribes; this use case no longer knows they exist.
+            // 4. Anunciarlo. Quien tenga interés —hoy, el correo de
+            //    confirmación— se suscribe; este caso de uso ya no sabe que
+            //    existen.
             publishEventsOf(booking);
 
             return appointment;
 
         } catch (GraphResponseException ex) {
+            // Graph respondió y rechazó: hay certeza de que no se creó nada,
+            // así que se compensa liberando el hueco.
             log.error("Graph rejected the appointment (status {}), releasing booking {}: {}",
                     ex.getStatus(), booking.id(), ex.getMessage());
             booking.release();
@@ -154,9 +161,17 @@ public class AppointmentService implements AppointmentManagement {
             throw ex;
 
         } catch (RuntimeException ex) {
-            // No definitive answer: the booking deliberately stays PENDING so the
-            // recovery job can ask Graph what actually happened. Releasing here
-            // would free a slot that may well be taken.
+            // Sin respuesta definitiva de Graph: la reserva se queda en PENDING
+            // A PROPÓSITO, para que el job de recuperación pregunte a Graph qué
+            // ocurrió en realidad.
+            //
+            // Liberar aquí es el error clásico: un timeout del cliente no aborta
+            // el trabajo del servidor, así que el POST puede haber creado la cita
+            // igualmente. Liberar el hueco lo dejaría libre para otro cliente y
+            // acabaríamos con dos citas solapadas.
+            //
+            // Un hueco retenido de más es el fallo barato; una doble reserva, el
+            // caro.
             log.error("No definitive answer from Graph. Booking {} stays PENDING", booking.id());
             throw ex;
         }

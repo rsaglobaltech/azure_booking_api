@@ -17,25 +17,35 @@ import java.util.Optional;
  * Domain layer: defines the contract; the implementation
  * ({@code BookingJpaAdapter}) lives in the infrastructure layer.
  *
- * <h2>Why this port owns mutual exclusion</h2>
+ * <h2>Por qué la exclusión mutua vive detrás de este puerto</h2>
  *
- * Microsoft Graph cannot be the authority: it offers neither locks nor
- * transactions nor conditional writes on {@code bookingAppointment}, and the
- * endpoint in use is the administrative one, which permits overbooking on
- * purpose. The rule that two bookings must not overlap therefore lives here,
- * enforced inside the transaction that writes the reservations.
+ * Microsoft Graph no puede ser la autoridad: sobre {@code bookingAppointment} no
+ * ofrece bloqueos, ni transacciones, ni escrituras condicionales, y el endpoint
+ * que usamos es el administrativo, que permite el sobrecupo a propósito. La
+ * regla de que dos reservas no se solapen vive por tanto aquí, aplicada dentro
+ * de la transacción que escribe las reservas.
  *
- * <h2>Intended call order</h2>
+ * <h2>Orden de llamada previsto</h2>
  *
  * <pre>
- *   1. reserve(...)              → own transaction, committed immediately
- *   2. POST to Microsoft Graph   → outside any transaction
- *   3a. booking.confirm(id); save(booking)   → on success
- *   3b. booking.release();      save(booking)   → on failure (compensation)
+ *   1. reserve(...)                          → transacción propia, se confirma ya
+ *   2. POST a Microsoft Graph                → fuera de toda transacción
+ *   3a. booking.confirm(id); save(booking)   → si Graph acepta
+ *   3b. booking.release();  save(booking)    → si Graph rechaza (compensación)
  * </pre>
  *
- * <p><b>Step 2 must not run inside an open transaction.</b> Holding one open
- * across a network call exhausts the connection pool under load.
+ * <p><b>El paso 2 no debe ejecutarse dentro de una transacción abierta.</b>
+ * Mantener una transacción abierta a lo largo de una llamada de red agota el
+ * pool de conexiones bajo carga: un problema de corrección se convertiría en una
+ * caída del servicio.
+ *
+ * <h2>El tercer caso, el peligroso</h2>
+ *
+ * Si Graph <b>no responde</b> (timeout, conexión cortada), no se compensa: la
+ * reserva se queda en {@code PENDING} a propósito. Un timeout del cliente no
+ * aborta el trabajo del servidor — el {@code POST} puede haber creado la cita
+ * igualmente. Liberar el hueco ahí es exactamente lo que produce la doble
+ * reserva. Véase {@code SlotRecoveryService}.
  */
 public interface BookingRepository {
 

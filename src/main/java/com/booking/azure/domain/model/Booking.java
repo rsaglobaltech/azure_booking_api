@@ -19,32 +19,37 @@ import java.util.Optional;
 /**
  * A held booking: aggregate root over the slot reservations it owns.
  *
- * <h2>The invariant this aggregate exists to protect</h2>
+ * <h2>La invariante que este agregado existe para proteger</h2>
  *
- * <b>All or nothing.</b> A booking assigned to three staff members holds three
- * slots or none. Every transition therefore applies to the whole set: there is
- * no way to confirm two reservations and release the third, because callers
- * cannot reach the reservations individually.
+ * <b>Todo o nada.</b> Una reserva asignada a tres empleados retiene tres huecos
+ * o ninguno. Toda transición se aplica por tanto al conjunto entero: no hay
+ * forma de confirmar dos reservas y liberar la tercera, porque desde fuera no se
+ * puede alcanzar una reserva individual — sus transiciones son de ámbito
+ * paquete y solo la raíz las dispara.
  *
- * <h2>Lifecycle</h2>
+ * <h2>Ciclo de vida</h2>
  *
  * <pre>
- *   request()  → PENDING     slots held, Graph knows nothing yet
- *   confirm()  → CONFIRMED   Graph accepted the write, appointment id attached
- *   release()  → RELEASED    compensation, cancellation, or reschedule
+ *   request()  → PENDING     huecos retenidos, Graph aún no sabe nada
+ *   confirm()  → CONFIRMED   Graph aceptó la escritura, se adjunta el id de cita
+ *   release()  → RELEASED    compensación, cancelación o reprogramación
  * </pre>
  *
- * {@code PENDING} and {@code CONFIRMED} both block the slot; only
- * {@code RELEASED} frees it.
+ * {@code PENDING} y {@code CONFIRMED} bloquean el hueco; solo {@code RELEASED}
+ * lo libera. La fila liberada permanece como rastro de auditoría.
  *
- * <h2>What this aggregate does not own</h2>
+ * <h2>Lo que este agregado NO controla</h2>
  *
- * The rule that two <i>different</i> bookings must not overlap crosses
- * aggregate boundaries and cannot be checked from in-memory state — a booking
- * knows nothing about bookings it has never loaded. That invariant is enforced
- * at the database, by a pessimistic lock on the staff member row plus an
- * overlap check, inside the transaction that writes the reservations. See
- * {@code BookingJpaAdapter}.
+ * La regla de que dos reservas <i>distintas</i> no se solapen cruza fronteras de
+ * agregado y no se puede comprobar desde el estado en memoria: una reserva no
+ * sabe nada de reservas que nunca ha cargado.
+ *
+ * <p>Esa invariante se impone en la base de datos —bloqueo pesimista sobre la
+ * fila del empleado más comprobación de solape, dentro de la transacción que
+ * escribe las reservas—, y está documentada en detalle en
+ * {@code BookingJpaAdapter#store}. Es la salida clásica de DDD cuando una regla
+ * no cabe dentro de un único agregado, y conviene tenerla presente: <b>este
+ * agregado no te protege de la doble reserva; el adaptador sí</b>.
  */
 public class Booking extends AggregateRoot {
 

@@ -23,41 +23,53 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
- * Recovery of orphaned {@code PENDING} reservations.
+ * Recuperación de reservas {@code PENDING} huérfanas.
  *
- * <h2>Why this service must exist</h2>
+ * <h2>Por qué este servicio tiene que existir</h2>
  *
- * Since compensation distinguishes "Graph rejected it" from "Graph did not
- * answer", a reservation stays {@code PENDING} on every timeout. That is
- * correct — it prevents the double booking — but without this service the slot
- * would stay blocked <b>forever</b>.
+ * Como la compensación distingue «Graph rechazó» de «Graph no contestó», cada
+ * timeout deja una reserva en {@code PENDING}. Eso es correcto —evita la doble
+ * reserva—, pero sin este servicio el hueco quedaría bloqueado <b>para
+ * siempre</b>.
  *
- * <h2>The one rule that matters</h2>
+ * <h2>La única regla que importa</h2>
  *
- * <b>Check with Graph first, decide second.</b> A job that deletes expired rows
- * on a schedule causes exactly the bug it is meant to fix:
+ * <b>Primero preguntar a Graph, después decidir.</b> Un job que libere las filas
+ * caducadas por horario provoca exactamente el fallo que pretende arreglar:
  *
  * <pre>
- *   t=0    A reserves, expires_at = t+90. POST sent to Graph.
- *   t=0.1  Graph is overloaded and takes 120 s.
- *   t=90   A blind job releases the "expired" row. Slot free.
- *   t=91   B takes the slot, POST → 201
- *   t=120  A's POST reaches Graph after all → 201
- *          Two overlapping appointments. Silently.
+ *   t=0     A reserva, expires_at = t+90. Se envía el POST a Graph.
+ *   t=0,1   Graph está saturado y tarda 120 s.
+ *   t=90    Un job ciego libera la fila «caducada». Hueco libre.
+ *   t=91    B ocupa el hueco, POST → 201
+ *   t=120   El POST de A llega a Graph de todas formas → 201
+ *           Dos citas solapadas. En silencio.
  * </pre>
  *
- * A row expiring does not abort an in-flight HTTP call. This service therefore
- * queries {@code GET /calendarView} for every orphaned row and only then
- * decides:
+ * <p><b>Que una fila caduque no aborta una llamada HTTP en vuelo.</b>
+ * {@code expires_at} no demuestra que la cita no exista: solo marca la fila como
+ * <i>digna de comprobación</i>, nunca como <i>liberable</i>.
+ *
+ * <p>Por eso este servicio consulta {@code GET /calendarView} para cada fila
+ * huérfana y solo entonces decide:
  *
  * <ul>
- *   <li>appointment found → {@code CONFIRMED}. <b>Restore, do not release</b> —
- *       the write did happen.</li>
- *   <li>appointment missing → {@code RELEASED}. The slot becomes bookable.</li>
- *   <li>Graph unreachable → do nothing, retry on the next run.</li>
+ *   <li>cita encontrada → {@code CONFIRMED}. <b>Restaurar, no liberar</b>: la
+ *       escritura sí ocurrió.</li>
+ *   <li>cita ausente → {@code RELEASED}. El hueco vuelve a ser reservable.</li>
+ *   <li>Graph inalcanzable → <b>no tocar nada</b> y reintentar en la siguiente
+ *       vuelta. Sin respuesta no hay base para decidir, y quedarse quieto es el
+ *       lado seguro.</li>
  * </ul>
  *
- * See docs/PLAN-COLISION-RESERVAS.md §2.5.
+ * <h2>El cotejo es por solape, no por igualdad</h2>
+ *
+ * Bookings puede añadir márgenes de preparación antes y después, y Graph
+ * devuelve las horas en zonas distintas según el endpoint. Una comparación
+ * estricta fallaría al reconocer la cita y liberaría el hueco por error — que es
+ * el fallo más caro de los dos.
+ *
+ * <p>Véase {@code docs/PLAN-COLISION-RESERVAS.md} §2.5.
  */
 @Slf4j
 @Service
